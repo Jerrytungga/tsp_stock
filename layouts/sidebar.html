@@ -1,0 +1,139 @@
+<?php
+// Notification for items needing resolution
+include_once __DIR__ . '/../db.php';
+$unresolvedAlert = 0;
+try {
+  $baseWhere = "new_available_stock IS NOT NULL AND new_available_stock != '' AND available_stock IS NOT NULL AND available_stock != ''";
+  $numericDiff = "(TRIM(new_available_stock) REGEXP '^-?[0-9]+(\\.[0-9]+)?$' AND TRIM(available_stock) REGEXP '^-?[0-9]+(\\.[0-9]+)?$' AND CAST(TRIM(new_available_stock) AS DECIMAL(18,4)) != CAST(TRIM(available_stock) AS DECIMAL(18,4)))";
+  $stringDiff  = "(NOT($numericDiff) AND TRIM(new_available_stock) != TRIM(available_stock))";
+  $anyDiff     = "(($numericDiff) OR ($stringDiff))";
+  $sql = "SELECT COUNT(*) AS cnt FROM stock_taking WHERE $baseWhere AND $anyDiff AND resolved_at IS NULL";
+  $unresolvedAlert = (int)$pdo->query($sql)->fetchColumn();
+} catch (Exception $e) {
+  $unresolvedAlert = 0;
+}
+if (session_status() !== PHP_SESSION_ACTIVE) session_start();
+?>
+<!-- [ Sidebar Menu ] start -->
+<nav class="pc-sidebar">
+  <div class="navbar-wrapper">
+    <div class="m-header">
+      <a href="dashboard.php" class="b-brand text-black d-flex align-items-center">
+        <span style="font-size: 16pt; font-weight:700;">Triatra Timika Papua</span>
+      </a>
+    </div>
+    <div class="navbar-content">
+      <ul class="pc-navbar">
+        <li class="pc-item">
+          <a href="dashboard.php" class="pc-link">
+            <span class="pc-micon"><i class="ti ti-dashboard"></i></span>
+            <span class="pc-mtext">Dasbor</span>
+          </a>
+        </li>
+
+        
+
+    
+        <li class="pc-item pc-caption">
+          <label>Halaman</label>
+          <i class="ti ti-news"></i>
+        </li>
+
+        <li class="pc-item">
+          <a href="katalog.php" class="pc-link">
+            <span class="pc-micon"><i class="ti ti-package"></i></span>
+            <span class="pc-mtext">Katalog Bagian</span>
+          </a>
+        </li>
+        
+        <li class="pc-item">
+          <a href="stock_taking.php" class="pc-link">
+            <span class="pc-micon"><i class="ti ti-color-picker"></i></span>
+            <span class="pc-mtext">Pengambilan Stok</span>
+          </a>
+        </li>
+
+        <li class="pc-item">
+          <a href="stock_taking_report.php" class="pc-link">
+            <span class="pc-micon"><i class="ti ti-chart-bar"></i></span>
+            <span class="pc-mtext">Laporan Pengambilan Stok</span>
+          </a>
+        </li>
+
+        <li class="pc-item">
+          <a href="stock_taking_result.php" class="pc-link">
+            <span class="pc-micon"><i class="ti ti-clipboard-list"></i></span>
+            <span class="pc-mtext">Hasil Pengambilan Stok</span>
+          </a>
+        </li>
+
+        <li class="pc-item">
+          <a href="parts_difference_tracking.php" class="pc-link">
+            <span class="pc-micon"><i class="ti ti-alert-circle"></i></span>
+            <span class="pc-mtext">Pelacakan Perbedaan Bagian</span>
+          </a>
+        </li>
+
+        <li class="pc-item">
+          <a href="resolve_differences.php" class="pc-link">
+            <span class="pc-micon"><i class="ti ti-checkbox"></i></span>
+            <span class="pc-mtext">Selesaikan Perbedaan</span>
+            <?php if ($unresolvedAlert > 0): ?>
+              <span class="badge bg-danger ms-2"><?php echo $unresolvedAlert; ?></span>
+            <?php endif; ?>
+          </a>
+        </li>
+
+        <li class="pc-item">
+          <a href="physical_notes.php" class="pc-link">
+            <span class="pc-micon"><i class="ti ti-notes"></i></span>
+            <span class="pc-mtext">Catatan Fisik / Blok S</span>
+          </a>
+        </li>
+
+        <?php if (!empty($_SESSION['user_id'])): ?>
+        <li class="pc-item">
+          <a href="upload_reports_monthly.php" class="pc-link">
+            <span class="pc-micon"><i class="ti ti-report"></i></span>
+            <span class="pc-mtext">Upload Laporan Bulanan</span>
+          </a>
+        </li>
+        <?php endif; ?>
+
+        <li class="pc-item">
+          <a href="pic.php" class="pc-link">
+            <span class="pc-micon"><i class="ti ti-user"></i></span>
+            <span class="pc-mtext">PIC</span>
+          </a>
+        </li>
+
+        <li class="pc-item">
+          <a href="assign_pic.php" class="pc-link">
+            <span class="pc-micon"><i class="ti ti-users"></i></span>
+            <span class="pc-mtext">Tetapkan PIC</span>
+          </a>
+        </li>
+        <?php if (!empty($_SESSION['user_id'])): ?>
+        <li class="pc-item pc-caption">
+          <label>Admin</label>
+          <i class="ti ti-lock"></i>
+        </li>
+        <li class="pc-item">
+          <a href="admin_db.php" class="pc-link">
+            <span class="pc-micon"><i class="ti ti-user-check"></i></span>
+            <span class="pc-mtext">Admin Pengguna</span>
+          </a>
+        </li>
+        <li class="pc-item">
+          <a href="db_control.php" class="pc-link">
+            <span class="pc-micon"><i class="ti ti-database"></i></span>
+            <span class="pc-mtext">Kontrol Database</span>
+          </a>
+        </li>
+        <?php endif; ?>
+      </ul>
+     
+    </div>
+  </div>
+</nav>
+<!-- [ Sidebar Menu ] end -->

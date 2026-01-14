@@ -1,0 +1,22 @@
+# Dependencies
+vendor/
+
+# Environment variables
+.env
+
+# Logs
+*.log
+
+# Uploads and generated files
+uploads/
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# IDE files
+.vscode/
+.idea/
+
+# Temporary files
+temp_*.php

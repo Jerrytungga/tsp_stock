@@ -1,0 +1,59 @@
+<?php
+// Global auth guard: redirect to login.php if not authenticated.
+if (session_status() !== PHP_SESSION_ACTIVE) session_start();
+// Allow access to these scripts even when not logged in (setup/login/logout, PIC login page)
+$allowed = ['login.php','setup_users_table.php','logout.php','pic_stock_taking.php'];
+$script = basename($_SERVER['SCRIPT_NAME'] ?? '');
+// Permit access when admin user or PIC is logged in
+$isLogged = !empty($_SESSION['user_id']) || !empty($_SESSION['pic_id']);
+if (!in_array($script, $allowed) && !$isLogged) {
+  header('Location: login.php');
+  exit;
+}
+?>
+<!-- [Head] start -->
+<head>
+  <title>Triatra Timika Papua — PST Inventory</title>
+  <!-- [Meta] -->
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=0, minimal-ui">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="description" content="Mantis is made using Bootstrap 5 design framework. Download the free admin template & use it for your project.">
+  <meta name="keywords" content="Mantis, Dashboard UI Kit, Bootstrap 5, Admin Template, Admin Dashboard, CRM, CMS, Bootstrap Admin Template">
+  <meta name="author" content="CodedThemes">
+
+  <!-- [Favicon] icon -->
+  <link rel="icon" href="dist/assets/images/favicon.svg" type="image/x-icon">
+  <!-- [Page specific CSS] start -->
+  <!-- data tables css -->
+  <link rel="stylesheet" href="dist/assets/css/plugins/dataTables.bootstrap5.min.css">
+  <!-- DataTables Responsive CSS -->
+  <link rel="stylesheet" href="https://cdn.datatables.net/responsive/2.5.0/css/responsive.bootstrap5.min.css">
+  <!-- [Google Font] Family -->
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" id="main-font-link">
+<!-- [Tabler Icons] https://tablericons.com -->
+<link rel="stylesheet" href="dist/assets/fonts/tabler-icons.min.css" >
+<!-- [Feather Icons] https://feathericons.com -->
+<link rel="stylesheet" href="dist/assets/fonts/feather.css" >
+<!-- [Font Awesome Icons] https://fontawesome.com/icons -->
+<link rel="stylesheet" href="dist/assets/fonts/fontawesome.css" >
+<!-- [Material Icons] https://fonts.google.com/icons -->
+<link rel="stylesheet" href="dist/assets/fonts/material.css" >
+<!-- [Template CSS Files] -->
+<link rel="stylesheet" href="dist/assets/css/style.css" id="main-style-link" >
+<link rel="stylesheet" href="dist/assets/css/style-preset.css" >
+
+  <style>
+    :root{ --app-font: 'Poppins', system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; }
+    html,body{ font-family: var(--app-font); color:#111; }
+    h1,h2,h3,h4,h5,h6{ font-weight:600; }
+    .label{ font-weight:500; }
+    .small-muted{ color:#6b7280; }
+    .stat .label{ opacity:0.95; }
+    /* preserve white text on dark login left panel */
+    .login-left, .login-left * { color: #fff !important; }
+  </style>
+
+</head>
+<!-- [Head] end -->

@@ -474,3 +474,4 @@ header('Cache-Control: max-age=0');
 $writer = \PhpOffice\PhpSpreadsheet\IOFactory::createWriter($spreadsheet, 'Xlsx');
 $writer->save('php://output');
 exit;
+

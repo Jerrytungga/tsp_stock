@@ -1,4 +1,7 @@
 <?php
+ini_set('display_errors', 1);
+error_reporting(E_ALL);
+
 if (session_status() !== PHP_SESSION_ACTIVE) session_start();
 // Clear session data
 $_SESSION = [];
@@ -13,3 +16,4 @@ session_regenerate_id(true);
 session_destroy();
 header('Location: login.php');
 exit;
+

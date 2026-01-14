@@ -64,11 +64,11 @@ try { $res = $pdo->query('SHOW TABLES'); while ($r = $res->fetch(PDO::FETCH_NUM)
 ?>
 <!DOCTYPE html>
 <html lang="en">
-<?php include 'layouts/head.html'; ?>
+<?php include __DIR__ . '/layouts/head.html'; ?>
 <body>
-<?php include 'layouts/preloader.html'; ?>
-<?php include 'layouts/sidebar.html'; ?>
-<?php include 'layouts/header.html'; ?>
+<?php include __DIR__ . '/layouts/preloader.html'; ?>
+<?php include __DIR__ . '/layouts/sidebar.html'; ?>
+<?php include __DIR__ . '/layouts/header.html'; ?>
 
 <div class="pc-container"><div class="pc-content">
   <div class="container mt-4">
@@ -117,7 +117,8 @@ try { $res = $pdo->query('SHOW TABLES'); while ($r = $res->fetch(PDO::FETCH_NUM)
   </div>
 </div></div>
 
-<?php include 'layouts/footer.html'; ?>
-<?php include 'layouts/scripts.html'; ?>
+<?php include __DIR__ . '/layouts/footer.html'; ?>
+<?php include __DIR__ . '/layouts/scripts.html'; ?>
 </body>
 </html>
+

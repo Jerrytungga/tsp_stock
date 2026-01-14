@@ -61,11 +61,11 @@ try { $users = $pdo->query('SELECT id, username, name, created_at FROM users ORD
 ?>
 <!DOCTYPE html>
 <html lang="en">
-<?php include 'layouts/head.html'; ?>
+<?php include __DIR__ . '/layouts/head.html'; ?>
 <body>
-<?php include 'layouts/preloader.html'; ?>
-<?php include 'layouts/sidebar.html'; ?>
-<?php include 'layouts/header.html'; ?>
+<?php include __DIR__ . '/layouts/preloader.html'; ?>
+<?php include __DIR__ . '/layouts/sidebar.html'; ?>
+<?php include __DIR__ . '/layouts/header.html'; ?>
 
 <div class="pc-container"><div class="pc-content">
   <div class="container mt-4">
@@ -158,11 +158,12 @@ try { $users = $pdo->query('SELECT id, username, name, created_at FROM users ORD
   </div>
 </div>
 
-<?php include 'layouts/footer.html'; ?>
-<?php include 'layouts/scripts.html'; ?>
+<?php include __DIR__ . '/layouts/footer.html'; ?>
+<?php include __DIR__ . '/layouts/scripts.html'; ?>
 <script>
   function showReset(id, username){ document.getElementById('resetId').value = id; document.getElementById('resetUser').innerText = 'Reset password untuk: '+username; document.getElementById('resetModal').style.display = 'block'; }
   function hideReset(){ document.getElementById('resetModal').style.display = 'none'; }
 </script>
 </body>
 </html>
+

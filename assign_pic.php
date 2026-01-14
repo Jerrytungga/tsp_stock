@@ -188,11 +188,11 @@ try {
 ?>
 <!DOCTYPE html>
 <html lang="en">
-<?php include 'layouts/head.html'; ?>
+<?php include __DIR__ . '/layouts/head.html'; ?>
 <body data-pc-preset="preset-1" data-pc-direction="ltr" data-pc-theme="light">
-  <?php include 'layouts/preloader.html'; ?>
-  <?php include 'layouts/sidebar.html'; ?>
-  <?php include 'layouts/header.html'; ?>
+  <?php include __DIR__ . '/layouts/preloader.html'; ?>
+  <?php include __DIR__ . '/layouts/sidebar.html'; ?>
+  <?php include __DIR__ . '/layouts/header.html'; ?>
 
   <div class="pc-container">
     <div class="pc-content">
@@ -374,8 +374,8 @@ try {
     </div>
   </div>
 
-  <?php include 'layouts/footer.html'; ?>
-  <?php include 'layouts/scripts.html'; ?>
+  <?php include __DIR__ . '/layouts/footer.html'; ?>
+  <?php include __DIR__ . '/layouts/scripts.html'; ?>
   <script>
     // When a Count button is clicked, sort the corresponding collapse detail rows by ID (numeric)
     document.addEventListener('DOMContentLoaded', function() {
@@ -409,3 +409,4 @@ try {
   </script>
 </body>
 </html>
+

@@ -118,7 +118,7 @@ try {
 ?>
 <!doctype html>
 <html lang="en">
-<?php include 'layouts/head.html'; ?>
+<?php include __DIR__ . '/layouts/head.html'; ?>
 <body data-pc-preset="preset-1" data-pc-direction="ltr" data-pc-theme="light">
   <style>
     .page-header h4{font-weight:600}
@@ -128,9 +128,9 @@ try {
     .card{box-shadow:0 1px 4px rgba(15,15,15,.06)}
     .btn-outline-primary{border-radius:.35rem}
   </style>
-  <?php include 'layouts/preloader.html'; ?>
-  <?php include 'layouts/sidebar.html'; ?>
-  <?php include 'layouts/header.html'; ?>
+  <?php include __DIR__ . '/layouts/preloader.html'; ?>
+  <?php include __DIR__ . '/layouts/sidebar.html'; ?>
+  <?php include __DIR__ . '/layouts/header.html'; ?>
 
   <div class="pc-container">
     <div class="pc-content">
@@ -204,7 +204,7 @@ try {
     </div>
   </div>
 
-  <?php include 'layouts/footer.html'; ?>
+  <?php include __DIR__ . '/layouts/footer.html'; ?>
   <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
   <script>
     // centralized confirmation for delete-file forms using SweetAlert
@@ -241,6 +241,7 @@ try {
     });
     <?php endif; ?>
   </script>
-  <?php include 'layouts/scripts.html'; ?>
+  <?php include __DIR__ . '/layouts/scripts.html'; ?>
 </body>
 </html>
+

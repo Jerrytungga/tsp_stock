@@ -105,11 +105,11 @@ try {
 ?>
 <!DOCTYPE html>
 <html lang="en">
-<?php include 'layouts/head.html'; ?>
+<?php include __DIR__ . '/layouts/head.html'; ?>
 <body data-pc-preset="preset-1" data-pc-direction="ltr" data-pc-theme="light">
-<?php include 'layouts/preloader.html'; ?>
-<?php include 'layouts/sidebar.html'; ?>
-<?php include 'layouts/header.html'; ?>
+<?php include __DIR__ . '/layouts/preloader.html'; ?>
+<?php include __DIR__ . '/layouts/sidebar.html'; ?>
+<?php include __DIR__ . '/layouts/header.html'; ?>
 
       <style>
         .hero { background: linear-gradient(90deg,#4f46e5,#06b6d4); color:#fff; padding:20px; border-radius:8px; margin-bottom:18px; }
@@ -258,8 +258,8 @@ try {
 
       </div></div>
 
-      <?php include 'layouts/footer.html'; ?>
-      <?php include 'layouts/scripts.html'; ?>
+      <?php include __DIR__ . '/layouts/footer.html'; ?>
+      <?php include __DIR__ . '/layouts/scripts.html'; ?>
       <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
       <script>
         (function(){

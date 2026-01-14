@@ -1,4 +1,7 @@
 <?php
+ini_set('display_errors', 1);
+error_reporting(E_ALL);
+
 // Ensure uploads directory exists
 $uploadsDir = __DIR__ . '/uploads';
 if (!is_dir($uploadsDir)) {
@@ -88,11 +91,11 @@ if(isset($_POST['upload'])){
 ?>
 <!DOCTYPE html>
 <html lang="en">
-<?php include 'layouts/head.html'; ?>
+<?php include __DIR__ . '/layouts/head.html'; ?>
 <body data-pc-preset="preset-1" data-pc-direction="ltr" data-pc-theme="light">
-  <?php include 'layouts/preloader.html'; ?>
-  <?php include 'layouts/sidebar.html'; ?>
-  <?php include 'layouts/header.html'; ?>
+  <?php include __DIR__ . '/layouts/preloader.html'; ?>
+  <?php include __DIR__ . '/layouts/sidebar.html'; ?>
+  <?php include __DIR__ . '/layouts/header.html'; ?>
 
   <!-- [ Main Content ] start -->
   <div class="pc-container">
@@ -224,8 +227,8 @@ if(isset($_POST['upload'])){
     </div>
   </div>
 
-  <?php include 'layouts/footer.html'; ?>
-  <?php include 'layouts/scripts.html'; ?>
+  <?php include __DIR__ . '/layouts/footer.html'; ?>
+  <?php include __DIR__ . '/layouts/scripts.html'; ?>
 
   <!-- DataTable Initialization -->
   <script>

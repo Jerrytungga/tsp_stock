@@ -266,9 +266,9 @@ if (isset($_POST['history_update'])) {
   exit;
 }
 ?>
-<?php include 'layouts/head.html'; ?>
+<?php include __DIR__ . '/layouts/head.html'; ?>
 <body data-pc-preset="preset-1" data-pc-direction="ltr" data-pc-theme="light">
-<?php include 'layouts/preloader.html'; ?>
+<?php include __DIR__ . '/layouts/preloader.html'; ?>
 <style>
 /* Friendly table styling */
 .table-friendly thead th { background: linear-gradient(90deg,#42a5f5,#1e88e5); color: #fff; border-bottom: none; }
@@ -683,8 +683,8 @@ if (isset($_POST['history_update'])) {
   </div>
 </div>
 
-<?php include 'layouts/footer.html'; ?>
-<?php include 'layouts/scripts.html'; ?>
+<?php include __DIR__ . '/layouts/footer.html'; ?>
+<?php include __DIR__ . '/layouts/scripts.html'; ?>
 <?php if (!empty($_SESSION['login_success'])): 
     // consume the flag so alert shows only once
     unset($_SESSION['login_success']);
@@ -813,3 +813,4 @@ document.addEventListener('DOMContentLoaded', function(){
 </script>
 </body>
 </html>
+

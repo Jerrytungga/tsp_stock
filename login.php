@@ -50,9 +50,9 @@ if (!$no_users && $_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['login']
 ?>
 <!DOCTYPE html>
 <html lang="en">
-<?php include 'layouts/head.html'; ?>
+<?php include __DIR__ . '/layouts/head.html'; ?>
 <body>
-<?php include 'layouts/preloader.html'; ?>
+<?php include __DIR__ . '/layouts/preloader.html'; ?>
 <style>
   body.login-page{ background: radial-gradient(1200px 600px at 10% 20%, rgba(255,255,255,0.04), transparent), linear-gradient(180deg,#f8fafc 0%, #eef2ff 100%); min-height:100vh; display:flex; align-items:center; }
   .login-card{ max-width:980px; margin:40px auto; box-shadow:0 20px 50px rgba(2,6,23,0.18); border-radius:14px; overflow:hidden; display:flex; }
@@ -121,7 +121,7 @@ if (!$no_users && $_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['login']
   </div>
 </div>
 
-<?php include 'layouts/scripts.html'; ?>
+<?php include __DIR__ . '/layouts/scripts.html'; ?>
 <script>
   (function(){
     var t = document.getElementById('togglePass');
@@ -135,3 +135,4 @@ if (!$no_users && $_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['login']
 </script>
 </body>
 </html>
+

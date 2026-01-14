@@ -1,9 +1,13 @@
 <?php
+ini_set('display_errors', 1);
+error_reporting(E_ALL);
+
 // Database configuration
-$host = 'localhost'; // Ganti dengan host database Anda jika berbeda
-$dbname = 'pst_project'; // Ganti dengan nama database Anda
-$username = 'root'; // Ganti dengan username database Anda
-$password = ''; // Ganti dengan password database Anda
+// Ganti dengan kredensial database hosting Anda
+$host = getenv('DB_HOST') ?: 'localhost'; // Atau ganti langsung, misal 'your-host.com'
+$dbname = getenv('DB_NAME') ?: 'pst_project'; // Nama database di hosting
+$username = getenv('DB_USER') ?: 'root'; // Username database di hosting
+$password = getenv('DB_PASS') ?: ''; // Password database di hosting
 
 try {
     // Membuat koneksi PDO

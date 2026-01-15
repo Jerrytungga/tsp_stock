@@ -249,6 +249,7 @@ if(isset($_POST['upload'])){
   <!-- DataTable Initialization -->
   <script>
     $(document).ready(function() {
+      $.fn.dataTable.ext.errMode = 'none'; // Suppress DataTables error alerts
       var table = $('#katalog-table').DataTable({
         scrollY: '400px',
         scrollCollapse: true,

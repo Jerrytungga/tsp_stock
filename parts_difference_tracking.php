@@ -1,5 +1,6 @@
 <?php
 include 'db.php';
+include __DIR__ . '/layouts/auth.php';
 
 // Ensure created_at column exists
 try {
@@ -279,6 +280,7 @@ foreach ($difference_data as $item) {
 
   <script>
     $(document).ready(function() {
+      $.fn.dataTable.ext.errMode = 'none';
       $('#diff-table').DataTable({
         scrollY: '400px',
         scrollCollapse: true,

@@ -1,5 +1,6 @@
 <?php
 include 'db.php';
+include __DIR__ . '/layouts/auth.php';
 
 // Ensure pic table has required columns (name, nrp)
 try {

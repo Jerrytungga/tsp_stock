@@ -1,5 +1,6 @@
 <?php
 include 'db.php';
+include __DIR__ . '/layouts/auth.php';
 
 // Ensure resolved_at and resolution_notes columns exist
 try {
@@ -315,6 +316,7 @@ try {
 
   <script>
     $(document).ready(function() {
+      $.fn.dataTable.ext.errMode = 'none';
       $('#diff-table').DataTable({
         scrollY: '400px',
         scrollCollapse: true,

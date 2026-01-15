@@ -1,5 +1,6 @@
 <?php
 include 'db.php';
+include __DIR__ . '/layouts/auth.php';
 
 // Create table if not exists
 try {

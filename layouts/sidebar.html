@@ -12,7 +12,6 @@ try {
 } catch (Exception $e) {
   $unresolvedAlert = 0;
 }
-if (session_status() !== PHP_SESSION_ACTIVE) session_start();
 ?>
 <!-- [ Sidebar Menu ] start -->
 <nav class="pc-sidebar">
@@ -98,7 +97,7 @@ if (session_status() !== PHP_SESSION_ACTIVE) session_start();
             <span class="pc-mtext">Upload Laporan Bulanan</span>
           </a>
         </li>
-        
+
         <?php endif; ?>
 
         <li class="pc-item">

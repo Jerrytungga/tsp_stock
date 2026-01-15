@@ -1,5 +1,6 @@
 <?php
 include 'db.php';
+include __DIR__ . '/layouts/auth.php';
 
 // Ensure created_at column exists
 try {

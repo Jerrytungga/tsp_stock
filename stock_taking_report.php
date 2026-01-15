@@ -109,7 +109,8 @@ $pnSummary = ['physical' => 0, 'block_s' => 0, 'unresolved' => 0, 'resolved' => 
 $pnList = [];
 try {
   // summary by type
-  $rows = $pdo->query("SELECT issue_type, COUNT(*) total, SUM(resolved_at IS NULL) unresolved, SUM(resolved_at IS NOT NULL) resolved FROM physical_notes GROUP BY issue_type")?->fetchAll();
+  $result = $pdo->query("SELECT issue_type, COUNT(*) total, SUM(resolved_at IS NULL) unresolved, SUM(resolved_at IS NOT NULL) resolved FROM physical_notes GROUP BY issue_type");
+  $rows = $result ? $result->fetchAll() : [];
   foreach ($rows as $r) {
     $type = $r['issue_type'];
     if ($type === 'block_s') {
@@ -121,7 +122,8 @@ try {
     $pnSummary['resolved'] += (int)$r['resolved'];
   }
   // latest notes
-  $pnList = $pdo->query("SELECT pn.*, st.area, st.material, st.inventory_number, st.material_description FROM physical_notes pn LEFT JOIN stock_taking st ON pn.stock_taking_id = st.id ORDER BY pn.resolved_at IS NULL DESC, pn.created_at DESC LIMIT 20")?->fetchAll();
+  $result = $pdo->query("SELECT pn.*, st.area, st.material, st.inventory_number, st.material_description FROM physical_notes pn LEFT JOIN stock_taking st ON pn.stock_taking_id = st.id ORDER BY pn.resolved_at IS NULL DESC, pn.created_at DESC LIMIT 20");
+  $pnList = $result ? $result->fetchAll() : [];
 } catch (Exception $e) {
   $pnSummary = ['physical' => 0, 'block_s' => 0, 'unresolved' => 0, 'resolved' => 0];
   $pnList = [];

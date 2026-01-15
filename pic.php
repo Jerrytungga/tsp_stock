@@ -62,7 +62,8 @@ if (isset($_POST['delete_pic'])) {
 
 // Fetch list
 try {
-    $pics = $pdo->query("SELECT * FROM pic ORDER BY created_at DESC, id DESC")?->fetchAll();
+    $result = $pdo->query("SELECT * FROM pic ORDER BY created_at DESC, id DESC");
+    $pics = $result ? $result->fetchAll() : [];
 } catch (Exception $e) {
     $pics = [];
 }

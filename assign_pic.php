@@ -122,23 +122,26 @@ if (isset($_POST['assign']) && isset($_POST['pic_ids']) && is_array($_POST['pic_
 
 // Fetch data for display
 try {
-  $areas = $pdo->query("SELECT DISTINCT area FROM stock_taking WHERE area IS NOT NULL AND area != '' ORDER BY area ASC")?->fetchAll(PDO::FETCH_COLUMN) ?? [];
+  $result = $pdo->query("SELECT DISTINCT area FROM stock_taking WHERE area IS NOT NULL AND area != '' ORDER BY area ASC");
+  $areas = $result ? $result->fetchAll(PDO::FETCH_COLUMN) : [];
 } catch (Exception $e) {
   $areas = [];
 }
 
 try {
-    $pics = $pdo->query("SELECT * FROM pic ORDER BY name ASC")?->fetchAll(PDO::FETCH_ASSOC) ?? [];
+    $result = $pdo->query("SELECT * FROM pic ORDER BY name ASC");
+    $pics = $result ? $result->fetchAll(PDO::FETCH_ASSOC) : [];
 } catch (Exception $e) {
     $pics = [];
 }
 
 try {
-    $summary = $pdo->query("SELECT p.id, p.name, p.nrp, COUNT(st.id) AS assigned
+    $result = $pdo->query("SELECT p.id, p.name, p.nrp, COUNT(st.id) AS assigned
                              FROM pic p
                              LEFT JOIN stock_taking st ON st.assigned_pic_id = p.id
                              GROUP BY p.id, p.name, p.nrp
-                             ORDER BY p.name ASC")?->fetchAll(PDO::FETCH_ASSOC) ?? [];
+                             ORDER BY p.name ASC");
+    $summary = $result ? $result->fetchAll(PDO::FETCH_ASSOC) : [];
 } catch (Exception $e) {
     $summary = [];
 }

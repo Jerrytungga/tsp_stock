@@ -1,4 +1,5 @@
 <?php
+include __DIR__ . '/layouts/auth.php';
 // Early AJAX handler: must run before any HTML is output so JSON responses are valid
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update'])) {
   include 'db.php';

@@ -15,6 +15,7 @@ if (!in_array($script, $allowed) && !$isLogged) {
   header('Location: login.php');
   exit;
 }
+include 'db.php';
 
 // Ensure uploads directory exists
 $uploadsDir = __DIR__ . '/uploads';

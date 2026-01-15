@@ -1,5 +1,8 @@
 <?php
+ini_set('display_errors', 1);
+error_reporting(E_ALL);
 include 'db.php';
+if (!$pdo) { die("Database connection failed. Please check your database credentials."); }
 // Global auth guard: redirect to login.php if not authenticated.
 if (session_status() !== PHP_SESSION_ACTIVE) session_start();
 // Allow access to these scripts even when not logged in (setup/login/logout, PIC login page)

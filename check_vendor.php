@@ -9,10 +9,18 @@ if (!file_exists('vendor/autoload.php')) {
 
 echo "<p>vendor/autoload.php exists.</p>";
 
+if (!is_dir('vendor/phpoffice')) {
+    echo "<p style='color:red;'>ERROR: vendor/phpoffice/ folder not found!</p>";
+    exit;
+}
+
+echo "<p>vendor/phpoffice/ folder exists.</p>";
+
 require 'vendor/autoload.php';
 
 if (!class_exists('PhpOffice\PhpSpreadsheet\Spreadsheet')) {
     echo "<p style='color:red;'>ERROR: PhpSpreadsheet class not found!</p>";
+    echo "<p>Check if vendor/phpoffice/phpspreadsheet/ exists.</p>";
     exit;
 }
 

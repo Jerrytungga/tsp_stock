@@ -18,7 +18,7 @@ use PhpOffice\PhpSpreadsheet\Style\Font;
 $spreadsheet = new Spreadsheet();
 
 // Get overall statistics
-$stmt = $pdo->query("
+$result = $pdo->query("
     SELECT 
         COUNT(*) as total_parts,
         COUNT(CASE WHEN new_available_stock IS NOT NULL AND new_available_stock != '' THEN 1 END) as parts_with_diff,
@@ -26,7 +26,10 @@ $stmt = $pdo->query("
         COUNT(CASE WHEN new_available_stock IS NOT NULL AND new_available_stock != '' AND resolved_at IS NOT NULL THEN 1 END) as resolved
     FROM stock_taking
 ");
-$stats = $stmt->fetch();
+$stats = $result ? $result->fetch() : null;
+if (!$stats) {
+    $stats = ['total_parts' => 0, 'parts_with_diff' => 0, 'unresolved' => 0, 'resolved' => 0];
+}
 
 // Sheet 1: Summary
 $sheet1 = $spreadsheet->getActiveSheet();
@@ -77,12 +80,12 @@ foreach ($headers as $header) {
     $col++;
 }
 
-$stmt = $pdo->query("
+$result = $pdo->query("
     SELECT * FROM stock_taking 
     WHERE new_available_stock IS NOT NULL AND new_available_stock != ''
     ORDER BY created_at DESC
 ");
-$differences = $stmt->fetchAll();
+$differences = $result ? $result->fetchAll() : [];
 
 $row = 3;
 foreach ($differences as $item) {

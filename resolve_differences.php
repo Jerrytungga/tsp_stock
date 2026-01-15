@@ -216,11 +216,11 @@ try {
                     <tr>
                       <td><?php echo $no++; ?></td>
                       <td><?php echo htmlspecialchars($item['material']); ?></td>
-                        <td><?php echo htmlspecialchars($item['type'] ?? ''); ?></td>
-                        <td><?php echo htmlspecialchars($item['material_description'] ?? ''); ?></td>
                       <td><?php echo htmlspecialchars($item['inventory_number']); ?></td>
                       <td><?php echo htmlspecialchars($avail); ?></td>
                       <td><?php echo htmlspecialchars($new); ?></td>
+                      <td><?php echo htmlspecialchars($item['type'] ?? ''); ?></td>
+                      <td><?php echo htmlspecialchars($item['material_description'] ?? ''); ?></td>
                       <td class="<?php echo $typeClass; ?> text-center"><strong><?php echo $diff; ?></strong></td>
                       <td><?php echo htmlspecialchars($origBin); ?> → <?php echo htmlspecialchars($newBin); ?></td>
                       <td><small><?php echo !empty($item['created_at']) ? date('Y-m-d H:i', strtotime($item['created_at'])) : '-'; ?></small></td>
@@ -247,7 +247,7 @@ try {
 <?php endforeach; ?>
 <?php else: ?>
                     <tr>
-                      <td colspan="<?php echo $filter === 'resolved' ? '14' : '12'; ?>" class="text-center text-muted">Tidak ada temuan perbedaan (difference = 0), nominal stok aman.</td>
+                      <td colspan="<?php echo $filter === 'resolved' ? '13' : '11'; ?>" class="text-center text-muted">Tidak ada temuan perbedaan (difference = 0), nominal stok aman.</td>
                     </tr>
 <?php endif; ?>
                   </tbody>

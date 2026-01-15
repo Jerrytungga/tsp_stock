@@ -1,3 +1,4 @@
+
 <?php
 // Global auth guard: redirect to login.php if not authenticated.
 if (session_status() !== PHP_SESSION_ACTIVE) session_start();

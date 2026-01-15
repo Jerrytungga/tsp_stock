@@ -90,7 +90,8 @@ if(isset($_POST['upload'])){
 
           $new_tbody .= '<tr>';
           $new_tbody .= '<td>' . $no++ . '</td>';
-          foreach($dataCells as $cell){
+          for ($i = 0; $i < 13; $i++) {
+            $cell = isset($dataCells[$i]) ? $dataCells[$i] : '';
             $new_tbody .= '<td>' . htmlspecialchars($cell) . '</td>';
           }
           $new_tbody .= '<td>' . $imgTag . '</td>';

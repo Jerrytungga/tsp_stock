@@ -1,4 +1,14 @@
 <?php
+// Suppress warnings to prevent corrupting the Excel download
+error_reporting(E_ERROR | E_PARSE);
+ini_set('display_errors', 0);
+
+if (!file_exists('vendor/autoload.php')) {
+    header('Content-Type: text/plain');
+    echo 'Error: Dependencies not installed. Please run "composer install" on the server.';
+    exit;
+}
+
 require 'vendor/autoload.php';
 
 use PhpOffice\PhpSpreadsheet\Spreadsheet;

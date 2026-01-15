@@ -20,7 +20,7 @@ $spreadsheet = new Spreadsheet();
 
 // Get all data
 try {
-    $stmt = $pdo->query("
+    $result = $pdo->query("
         SELECT 
             COUNT(*) as total_parts,
             COUNT(CASE WHEN new_available_stock IS NOT NULL AND new_available_stock != '' THEN 1 END) as parts_with_diff,
@@ -31,14 +31,14 @@ try {
             MAX(created_at) as last_taking
         FROM stock_taking
     ");
-    $stats = $stmt->fetch();
+    $stats = $result ? $result->fetch() : [];
 } catch (Exception $e) {
     $stats = [];
 }
 
 // Get all parts data
-$stmt = $pdo->query("SELECT * FROM stock_taking ORDER BY created_at DESC, id DESC");
-$allParts = $stmt->fetchAll();
+$result = $pdo->query("SELECT * FROM stock_taking ORDER BY created_at DESC, id DESC");
+$allParts = $result ? $result->fetchAll() : [];
 
 // Get physical/block S notes summary and list
 $pnSummary = ['physical' => 0, 'block_s' => 0, 'unresolved' => 0, 'resolved' => 0];
@@ -365,7 +365,7 @@ for ($col = 'A'; $col <= 'J'; $col++) {
 $sheet5->getColumnDimension('I')->setWidth(25);
 
 // ========== SHEET 6: AREA SUMMARY ==========
-$stmt = $pdo->query("
+$result = $pdo->query("
     SELECT 
         area,
         COUNT(*) as total_parts,
@@ -374,7 +374,7 @@ $stmt = $pdo->query("
     GROUP BY area
     ORDER BY area
 ");
-$areaData = $stmt->fetchAll();
+$areaData = $result ? $result->fetchAll() : [];
 
 $sheet6 = $spreadsheet->createSheet();
 $sheet6->setTitle('By Area');

@@ -2,6 +2,10 @@
 if (session_status() !== PHP_SESSION_ACTIVE) session_start();
 include 'db.php';
 
+if (!$pdo) {
+    die("Database connection failed. Please check your database configuration in db.php.");
+}
+
 // Ensure users table exists (do not auto-seed admin here for safety)
 $no_users = false;
 try {

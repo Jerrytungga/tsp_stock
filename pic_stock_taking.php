@@ -271,7 +271,7 @@ if (isset($_POST['history_update'])) {
 <?php include __DIR__ . '/layouts/preloader.html'; ?>
 <style>
 /* Friendly table styling */
-.table-friendly thead th { background: linear-gradient(90deg,#42a5f5,#1e88e5); color: #fff; border-bottom: none; }
+.table-friendly thead th { background: linear-gradient(90deg,#42a5f5,#1e88e5); color: #fff; border-bottom: none; position: sticky; top: 0; z-index: 10; }
 .table-friendly { border-radius: 6px; overflow: hidden; }
 .table-friendly tbody tr.needs-review-row { background: #fff4e6 !important; border-left: 4px solid #ffb74d; }
 .table-friendly tbody tr.changed-row { background: #e8f5e9 !important; border-left: 4px solid #66bb6a; }
@@ -374,7 +374,6 @@ if (isset($_POST['history_update'])) {
                         <th>Part Description</th>
                         <th>Inventory Number</th>
                         <th>Batch</th>
-                        <th>PIC</th>
                         <th>Location</th>
                         <th>New Stock</th>
                         <th>New Location</th>
@@ -383,7 +382,7 @@ if (isset($_POST['history_update'])) {
                     </thead>
                     <tbody>
                       <?php if (empty($items)): ?>
-                        <tr><td colspan="10" class="text-center text-muted">Tidak ada tugas untuk PIC ini.</td></tr>
+                        <tr><td colspan="9" class="text-center text-muted">Tidak ada tugas untuk PIC ini.</td></tr>
                       <?php else: ?>
                         <?php $no = 1; $has_pending = false; foreach ($items as $it):
                           // only show items that do not have a saved new stock yet
@@ -403,7 +402,6 @@ if (isset($_POST['history_update'])) {
                             </td>
                             <td><?php echo htmlspecialchars($it['inventory_number'] ?? ''); ?></td>
                             <td><?php echo htmlspecialchars($it['batch'] ?? ''); ?></td>
-                            <td><?php echo htmlspecialchars($_SESSION['pic_name'] ?? ($it['pic_name'] ?? '-')); ?></td>
                             <td><?php echo htmlspecialchars($it['storage_bin'] ?? ''); ?></td>
                             <td>
                               <input type="text" name="new_stock[<?php echo $it['id']; ?>]" class="form-control form-control-sm" placeholder="new stock" value="">
@@ -424,7 +422,7 @@ if (isset($_POST['history_update'])) {
                             </td>
                           </tr>
                         <?php endforeach; if (!$has_pending): ?>
-                          <tr><td colspan="10" class="text-center text-muted">Semua item sudah memiliki nilai stok baru.</td></tr>
+                          <tr><td colspan="9" class="text-center text-muted">Semua item sudah memiliki nilai stok baru.</td></tr>
                         <?php endif; ?>
                       <?php endif; ?>
                     </tbody>
@@ -521,76 +519,6 @@ if (isset($_POST['history_update'])) {
                   </div>
                 </div>
               </div>
-              <!-- History section for logged-in PIC -->
-              <hr>
-              <div class="mt-3">
-                <h6>Riwayat Perubahan Anda</h6>
-                <?php
-                  $hist = [];
-                  try {
-                    $hst = $pdo->prepare('SELECT h.*, s.inventory_number, s.material FROM stock_taking_history h LEFT JOIN stock_taking s ON s.id = h.stock_taking_id WHERE h.changed_by = ? ORDER BY h.created_at DESC LIMIT 200');
-                    $hst->execute([ $selected_pic ]);
-                    $hist = $hst->fetchAll(PDO::FETCH_ASSOC);
-                  } catch (Exception $e) { $hist = []; }
-                ?>
-                <div class="table-responsive">
-                  <table id="historyTable" class="table table-sm table-striped">
-                    <thead>
-                      <tr><th>#</th><th>Time</th><th>Inventory</th><th>Old / New Stock</th><th>Old / New Location</th><th>Note</th><th></th></tr>
-                    </thead>
-                    <tbody>
-                      <?php if (empty($hist)): ?>
-                        <tr><td colspan="7" class="text-center text-muted">Belum ada riwayat.</td></tr>
-                      <?php else: $i=1; foreach ($hist as $h): ?>
-                        <tr>
-                          <td><?php echo $i++; ?></td>
-                          <td><?php echo htmlspecialchars($h['created_at']); ?></td>
-                          <td><?php echo htmlspecialchars($h['inventory_number'] ?? $h['stock_taking_id']); ?><br><small><?php echo htmlspecialchars($h['material'] ?? ''); ?></small></td>
-                          <td><?php echo htmlspecialchars($h['old_available_stock']); ?> → <strong><?php echo htmlspecialchars($h['new_available_stock']); ?></strong></td>
-                          <td><?php echo htmlspecialchars($h['old_storage_bin']); ?> → <strong><?php echo htmlspecialchars($h['new_storage_bin']); ?></strong></td>
-                          <td class="note-col"><?php echo nl2br(htmlspecialchars($h['note'] ?? '')); ?></td>
-                          <td><button class="btn btn-sm btn-outline-primary edit-history" data-id="<?php echo $h['id']; ?>" data-note="<?php echo htmlspecialchars($h['note'] ?? '', ENT_QUOTES); ?>">Edit</button></td>
-                        </tr>
-                      <?php endforeach; endif; ?>
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-              <!-- Edit history modal -->
-              <div class="modal fade" id="historyModal" tabindex="-1" aria-hidden="true">
-                <div class="modal-dialog modal-sm modal-dialog-centered">
-                  <div class="modal-content">
-                    <form id="historyForm" method="post">
-                      <input type="hidden" name="history_update" value="1">
-                      <input type="hidden" name="history_id" id="history_id" value="">
-                      <div class="modal-header"><h5 class="modal-title">Edit Note</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
-                      <div class="modal-body">
-                        <textarea name="history_note" id="history_note" class="form-control form-control-sm" rows="4"></textarea>
-                      </div>
-                      <div class="modal-footer">
-                        <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                        <button type="submit" class="btn btn-sm btn-primary">Save</button>
-                      </div>
-                    </form>
-                  </div>
-                </div>
-              </div>
-              <script>
-                (function(){
-                  document.addEventListener('DOMContentLoaded', function(){
-                    document.querySelectorAll('.edit-history').forEach(function(b){
-                      b.addEventListener('click', function(){
-                        var id = this.getAttribute('data-id');
-                        var note = this.getAttribute('data-note');
-                        document.getElementById('history_id').value = id;
-                        document.getElementById('history_note').value = note || '';
-                        var m = new bootstrap.Modal(document.getElementById('historyModal'));
-                        m.show();
-                      });
-                    });
-                  });
-                })();
-              </script>
             <?php endif; ?>
             <!-- Edit result modal -->
             <!-- Unknown item modal -->
@@ -800,9 +728,6 @@ document.addEventListener('DOMContentLoaded', function(){
     if (window.jQuery && $.fn.DataTable) {
       if (document.getElementById('itemsTable')) {
         $('#itemsTable').DataTable({ responsive: true, pageLength: 25, lengthChange: false });
-      }
-      if (document.getElementById('resultsTable')) {
-        $('#resultsTable').DataTable({ responsive: true, pageLength: 25, lengthChange: false, ordering: true });
       }
       if (document.getElementById('historyTable')) {
         $('#historyTable').DataTable({ responsive: true, pageLength: 25, lengthChange: false, order: [[1, 'desc']] });

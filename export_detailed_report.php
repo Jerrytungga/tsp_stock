@@ -79,7 +79,7 @@ foreach ($allParts as $item) {
 }
 
 // Helper function to style cells
-function styleHeader(&$sheet, $range, $bgColor, $textColor = 'FFFFFFFF') {
+function styleHeader(&$sheet, $range, $bgColor, $textColor = 'FF000000') {
     $sheet->getStyle($range)->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setARGB($bgColor);
     $sheet->getStyle($range)->getFont()->setBold(true);
     $sheet->getStyle($range)->getFont()->getColor()->setARGB($textColor);
@@ -101,7 +101,7 @@ $sheet1->setTitle('Executive Summary');
 
 $sheet1->setCellValue('A1', 'STOCK TAKING REPORT');
 $sheet1->mergeCells('A1:E1');
-styleHeader($sheet1, 'A1:E1', 'FF1F4E78', 'FFFFFFFF');
+styleHeader($sheet1, 'A1:E1', 'FFD3D3D3', 'FF000000');
 $sheet1->getStyle('A1')->getFont()->setSize(16);
 $sheet1->getRowDimension(1)->setRowHeight(30);
 
@@ -109,7 +109,7 @@ $sheet1->setCellValue('A3', 'Report Date: ' . date('Y-m-d H:i:s'));
 $sheet1->setCellValue('A4', 'Generated: ' . date('Y-m-d H:i:s'));
 
 $sheet1->setCellValue('A6', 'SUMMARY');
-styleHeader($sheet1, 'A6:B6', 'FF4472C4');
+styleHeader($sheet1, 'A6:B6', 'FFE6E6FA');
 $sheet1->getRowDimension(6)->setRowHeight(20);
 
 $row = 7;
@@ -133,6 +133,14 @@ foreach ($summaryData as $label => $value) {
 $sheet1->getColumnDimension('A')->setWidth(30);
 $sheet1->getColumnDimension('B')->setWidth(20);
 
+// Add borders and black font for summary table
+styleBorders($sheet1, 'A6:B' . ($row - 1));
+$sheet1->getStyle('A7:B' . ($row - 1))->getFont()->getColor()->setARGB('FF000000');
+
+// Add borders and black font for difference summary
+styleBorders($sheet1, 'A16:B18');
+$sheet1->getStyle('A17:B18')->getFont()->getColor()->setARGB('FF000000');
+
 // Calculate totals
 $shortTotal = 0;
 $overTotal = 0;
@@ -146,7 +154,7 @@ foreach ($overParts as $item) {
 }
 
 $sheet1->setCellValue('A16', 'DIFFERENCE SUMMARY');
-styleHeader($sheet1, 'A16:B16', 'FFFF6B6B');
+styleHeader($sheet1, 'A16:B16', 'FFF8D7DA');
 
 $sheet1->setCellValue('A17', 'Total Shortage');
 $sheet1->setCellValue('B17', $shortTotal);
@@ -162,7 +170,7 @@ $sheet2->setTitle('All Parts');
 
 $sheet2->setCellValue('A1', 'ALL PARTS INVENTORY');
 $sheet2->mergeCells('A1:M1');
-styleHeader($sheet2, 'A1:M1', 'FF1F4E78', 'FFFFFFFF');
+styleHeader($sheet2, 'A1:M1', 'FFD3D3D3', 'FF000000');
 $sheet2->getRowDimension(1)->setRowHeight(25);
 $sheet2->getStyle('A1')->getFont()->setSize(14);
 
@@ -172,7 +180,7 @@ for ($i = 2; $i <= count($headers) + 1; $i++) {
     $sheet2->setCellValue($col . '2', $headers[$i-2]);
     $col++;
 }
-styleHeader($sheet2, 'A2:M2', 'FF4472C4');
+styleHeader($sheet2, 'A2:M2', 'FFE6E6FA');
 
 $row = 3;
 $no = 1;
@@ -220,13 +228,17 @@ for ($col = 'A'; $col <= 'M'; $col++) {
 }
 $sheet2->getColumnDimension('F')->setWidth(25);
 
+// Add borders and black font for all parts table
+styleBorders($sheet2, 'A2:M' . ($row - 1));
+$sheet2->getStyle('A3:M' . ($row - 1))->getFont()->getColor()->setARGB('FF000000');
+
 // ========== SHEET 3: SHORT PARTS DETAIL ==========
 $sheet3 = $spreadsheet->createSheet();
 $sheet3->setTitle('Short Parts Detail');
 
 $sheet3->setCellValue('A1', 'SHORT PARTS DETAIL (SHORTAGE)');
 $sheet3->mergeCells('A1:J1');
-styleHeader($sheet3, 'A1:J1', 'FFC5504A', 'FFFFFFFF');
+styleHeader($sheet3, 'A1:J1', 'FFF8D7DA', 'FF000000');
 $sheet3->getRowDimension(1)->setRowHeight(25);
 
 $headers = ['No', 'Area', 'Material', 'Inventory #', 'Description', 'Original Bin', 'New Bin', 'Original Stock', 'New Stock', 'Shortage'];
@@ -269,13 +281,17 @@ for ($col = 'A'; $col <= 'J'; $col++) {
 }
 $sheet3->getColumnDimension('E')->setWidth(25);
 
+// Add borders and black font for short parts table
+styleBorders($sheet3, 'A2:J' . $row);
+$sheet3->getStyle('A3:J' . $row)->getFont()->getColor()->setARGB('FF000000');
+
 // ========== SHEET 4: OVER PARTS DETAIL ==========
 $sheet4 = $spreadsheet->createSheet();
 $sheet4->setTitle('Over Parts Detail');
 
 $sheet4->setCellValue('A1', 'OVER PARTS DETAIL (OVERAGE)');
 $sheet4->mergeCells('A1:J1');
-styleHeader($sheet4, 'A1:J1', 'FFFFB84D', 'FFFFFFFF');
+styleHeader($sheet4, 'A1:J1', 'FFFFF3CD', 'FF000000');
 $sheet4->getRowDimension(1)->setRowHeight(25);
 
 $headers = ['No', 'Area', 'Material', 'Inventory #', 'Description', 'Original Bin', 'New Bin', 'Original Stock', 'New Stock', 'Overage'];
@@ -318,13 +334,17 @@ for ($col = 'A'; $col <= 'J'; $col++) {
 }
 $sheet4->getColumnDimension('E')->setWidth(25);
 
+// Add borders and black font for over parts table
+styleBorders($sheet4, 'A2:J' . $row);
+$sheet4->getStyle('A3:J' . $row)->getFont()->getColor()->setARGB('FF000000');
+
 // ========== SHEET 5: RESOLUTION HISTORY ==========
 $sheet5 = $spreadsheet->createSheet();
 $sheet5->setTitle('Resolution History');
 
 $sheet5->setCellValue('A1', 'RESOLUTION HISTORY');
 $sheet5->mergeCells('A1:J1');
-styleHeader($sheet5, 'A1:J1', 'FF70AD47', 'FFFFFFFF');
+styleHeader($sheet5, 'A1:J1', 'FFD4EDDA', 'FF000000');
 $sheet5->getRowDimension(1)->setRowHeight(25);
 
 $headers = ['No', 'Area', 'Material', 'Inventory #', 'Original Stock', 'New Stock', 'Difference', 'Resolved Date', 'Resolution Notes', 'Days to Resolve'];
@@ -364,6 +384,10 @@ for ($col = 'A'; $col <= 'J'; $col++) {
 }
 $sheet5->getColumnDimension('I')->setWidth(25);
 
+// Add borders and black font for resolution history table
+styleBorders($sheet5, 'A2:J' . ($row - 1));
+$sheet5->getStyle('A3:J' . ($row - 1))->getFont()->getColor()->setARGB('FF000000');
+
 // ========== SHEET 6: AREA SUMMARY ==========
 $result = $pdo->query("
     SELECT 
@@ -381,7 +405,7 @@ $sheet6->setTitle('By Area');
 
 $sheet6->setCellValue('A1', 'PARTS SUMMARY BY AREA');
 $sheet6->mergeCells('A1:D1');
-styleHeader($sheet6, 'A1:D1', 'FF1F4E78', 'FFFFFFFF');
+styleHeader($sheet6, 'A1:D1', 'FFD3D3D3', 'FF000000');
 $sheet6->getRowDimension(1)->setRowHeight(25);
 
 $headers = ['Area', 'Total Parts', 'Parts with Difference', 'Percentage'];
@@ -390,7 +414,7 @@ for ($i = 2; $i <= count($headers) + 1; $i++) {
     $sheet6->setCellValue($col . '2', $headers[$i-2]);
     $col++;
 }
-styleHeader($sheet6, 'A2:D2', 'FF4472C4');
+styleHeader($sheet6, 'A2:D2', 'FFE6E6FA');
 
 $row = 3;
 foreach ($areaData as $area) {
@@ -406,18 +430,22 @@ for ($col = 'A'; $col <= 'D'; $col++) {
     $sheet6->getColumnDimension($col)->setWidth(18);
 }
 
+// Add borders and black font for area summary table
+styleBorders($sheet6, 'A2:D' . ($row - 1));
+$sheet6->getStyle('A3:D' . ($row - 1))->getFont()->getColor()->setARGB('FF000000');
+
 // ========== SHEET 7: PHYSICAL / BLOK S NOTES ==========
 $sheet7 = $spreadsheet->createSheet();
 $sheet7->setTitle('Physical Notes');
 
 $sheet7->setCellValue('A1', 'PHYSICAL / BLOK S NOTES');
 $sheet7->mergeCells('A1:J1');
-styleHeader($sheet7, 'A1:J1', 'FF1F4E78', 'FFFFFFFF');
+styleHeader($sheet7, 'A1:J1', 'FFD3D3D3', 'FF000000');
 $sheet7->getRowDimension(1)->setRowHeight(25);
 
 // Summary block
 $sheet7->setCellValue('A3', 'Summary');
-styleHeader($sheet7, 'A3:B3', 'FF4472C4', 'FFFFFFFF');
+styleHeader($sheet7, 'A3:B3', 'FFE6E6FA', 'FF000000');
 $sheet7->setCellValue('A4', 'Salah Fisik');
 $sheet7->setCellValue('B4', $pnSummary['physical']);
 $sheet7->setCellValue('A5', 'Blok S');
@@ -466,6 +494,9 @@ foreach (['A'=>6,'B'=>12,'C'=>14,'D'=>16,'E'=>16,'F'=>24,'G'=>28,'H'=>12,'I'=>24
     $sheet7->getColumnDimension($colKey)->setWidth($w);
 }
 styleBorders($sheet7, 'A9:J' . max($row-1, 9));
+
+// Add black font for physical notes table data
+$sheet7->getStyle('A10:J' . max($row-1, 9))->getFont()->getColor()->setARGB('FF000000');
 
 // Download
 $filename = 'Stock_Taking_Detailed_Report_' . date('Y-m-d_H-i-s') . '.xlsx';

@@ -32,12 +32,233 @@
 <link rel="stylesheet" href="dist/assets/css/style-preset.css" >
 
   <style>
-    :root{ --app-font: 'Poppins', system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; }
-    html,body{ font-family: var(--app-font); color:#111; }
+    :root{
+      --app-font: 'Poppins', system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      --brand-50: #fff7ed;
+      --brand-100: #ffedd5;
+      --brand-200: #fed7aa;
+      --brand-300: #fdba74;
+      --brand-400: #fb923c;
+      --brand-500: #f97316;
+      --brand-600: #ea580c;
+      --brand-700: #c2410c;
+      --brand-900: #7c2d12;
+      --app-bg: #fffaf5;
+      --app-surface: #ffffff;
+      --app-surface-soft: #fff7ef;
+      --app-border: #fed7aa;
+      --app-border-strong: #fdba74;
+      --app-text: #111827;
+      --app-muted: #7c6a5b;
+      --app-shadow: 0 14px 36px rgba(234, 88, 12, 0.08);
+      --app-shadow-soft: 0 8px 24px rgba(234, 88, 12, 0.06);
+    }
+    html,body{ font-family: var(--app-font); color:var(--app-text); }
+    body:not(.login-page){
+      background:
+        radial-gradient(circle at top left, rgba(251, 146, 60, 0.14), transparent 28%),
+        radial-gradient(circle at right 10%, rgba(249, 115, 22, 0.10), transparent 24%),
+        linear-gradient(180deg, #fffdf9 0%, var(--app-bg) 100%);
+    }
     h1,h2,h3,h4,h5,h6{ font-weight:600; }
+    a{ color:var(--brand-700); }
+    a:hover{ color:var(--brand-600); }
     .label{ font-weight:500; }
-    .small-muted{ color:#6b7280; }
+    .small-muted,
+    .text-muted{ color:var(--app-muted) !important; }
     .stat .label{ opacity:0.95; }
+    .card,
+    .modal-content,
+    .dropdown-menu,
+    .offcanvas,
+    .list-group-item{
+      background:var(--app-surface);
+      border-color:rgba(251, 146, 60, 0.18) !important;
+      box-shadow:var(--app-shadow-soft);
+    }
+    .card-header,
+    .modal-header,
+    .offcanvas-header{
+      background:linear-gradient(180deg, #fffdf9 0%, var(--app-surface-soft) 100%);
+      border-bottom-color:rgba(251, 146, 60, 0.18) !important;
+    }
+    .pc-header{
+      background:rgba(255,255,255,0.94) !important;
+      backdrop-filter:blur(14px);
+      border-bottom:1px solid rgba(251, 146, 60, 0.16);
+      box-shadow:0 8px 26px rgba(234, 88, 12, 0.05);
+    }
+    .header-wrapper,
+    .pc-container,
+    .pc-content{ background:transparent; }
+    .pc-sidebar{
+      background:linear-gradient(180deg, #fffaf5 0%, #fff1e3 100%) !important;
+      border-right:1px solid rgba(251, 146, 60, 0.18);
+      box-shadow:8px 0 24px rgba(234, 88, 12, 0.04);
+    }
+    .pc-sidebar .m-header{ border-bottom:1px solid rgba(251, 146, 60, 0.14); }
+    .pc-sidebar .pc-caption label,
+    .pc-sidebar .pc-caption i,
+    .pc-sidebar .pc-link,
+    .pc-sidebar .pc-micon,
+    .pc-sidebar .pc-mtext,
+    .pc-head-link,
+    .b-brand,
+    .b-brand span{ color:#7c2d12 !important; }
+    .pc-sidebar .pc-link:hover,
+    .pc-sidebar .pc-item.active > .pc-link,
+    .pc-sidebar .pc-item.pc-trigger > .pc-link,
+    .pc-sidebar .pc-item .pc-link.active{
+      background:linear-gradient(135deg, rgba(249, 115, 22, 0.14), rgba(251, 146, 60, 0.22)) !important;
+      color:var(--brand-700) !important;
+      border-radius:12px;
+    }
+    .page-header,
+    .page-block,
+    .breadcrumb{
+      color:var(--app-text);
+    }
+    .page-header-title h5,
+    .breadcrumb-item a,
+    .breadcrumb-item.active{ color:#7c2d12 !important; }
+    .table-responsive{
+      border:1px solid rgba(251, 146, 60, 0.18);
+      border-radius:16px;
+      background:linear-gradient(180deg, #fffdf9 0%, #fffaf5 100%);
+      box-shadow:var(--app-shadow-soft);
+      overflow:auto;
+    }
+    .table{
+      margin-bottom:0;
+      color:var(--app-text);
+      --bs-table-bg: transparent;
+      --bs-table-striped-bg: rgba(255, 247, 239, 0.9);
+      --bs-table-hover-bg: rgba(255, 237, 213, 0.5);
+      --bs-table-border-color: rgba(251, 146, 60, 0.16);
+    }
+    .table > :not(caption) > * > *{
+      padding:0.82rem 0.9rem;
+      border-color:rgba(251, 146, 60, 0.16) !important;
+      vertical-align:middle;
+    }
+    .table thead th{
+      background:linear-gradient(180deg, #fff1e6 0%, #ffe6cc 100%);
+      color:#7c2d12;
+      border-bottom-color:rgba(251, 146, 60, 0.28) !important;
+      font-size:0.78rem;
+      font-weight:700;
+      letter-spacing:0.04em;
+      text-transform:uppercase;
+      white-space:nowrap;
+    }
+    .table tbody tr:hover{ background:rgba(255, 237, 213, 0.42); }
+    .table.table-sm > :not(caption) > * > *{
+      padding:0.62rem 0.72rem;
+    }
+    .dataTables_wrapper .dataTables_length,
+    .dataTables_wrapper .dataTables_filter,
+    .dataTables_wrapper .dataTables_info,
+    .dataTables_wrapper .dataTables_paginate{
+      color:var(--app-muted);
+      padding-top:0.9rem;
+    }
+    .dataTables_wrapper .dataTables_filter input,
+    .dataTables_wrapper .dataTables_length select{
+      border:1px solid rgba(251, 146, 60, 0.30);
+      border-radius:10px;
+      background:#fffdfb;
+      padding:0.38rem 0.7rem;
+      color:var(--app-text);
+    }
+    .dataTables_wrapper .dataTables_paginate .paginate_button{
+      border-radius:10px !important;
+      border:1px solid transparent !important;
+      color:var(--brand-700) !important;
+    }
+    .dataTables_wrapper .dataTables_paginate .paginate_button.current,
+    .dataTables_wrapper .dataTables_paginate .paginate_button.current:hover{
+      color:#fff !important;
+      border-color:var(--brand-600) !important;
+      background:linear-gradient(135deg, var(--brand-600), var(--brand-400)) !important;
+    }
+    .form-control,
+    .form-select{
+      border-color:rgba(251, 146, 60, 0.30);
+      background:#fffdfb;
+      color:var(--app-text);
+    }
+    .form-control:focus,
+    .form-select:focus{
+      border-color:var(--brand-400);
+      box-shadow:0 0 0 0.2rem rgba(249, 115, 22, 0.16);
+    }
+    .btn-primary,
+    .btn.btn-primary,
+    .bg-primary{
+      background:linear-gradient(135deg, var(--brand-600), var(--brand-400)) !important;
+      border-color:var(--brand-600) !important;
+      color:#fff !important;
+    }
+    .btn-primary:hover,
+    .btn.btn-primary:hover{
+      background:linear-gradient(135deg, var(--brand-700), var(--brand-500)) !important;
+      border-color:var(--brand-700) !important;
+    }
+    .btn-outline-primary,
+    .btn-outline-info,
+    .btn-outline-success{
+      color:var(--brand-700) !important;
+      border-color:rgba(249, 115, 22, 0.45) !important;
+      background:#fffaf5;
+    }
+    .btn-outline-primary:hover,
+    .btn-outline-info:hover,
+    .btn-outline-success:hover{
+      color:#fff !important;
+      background:linear-gradient(135deg, var(--brand-600), var(--brand-400)) !important;
+      border-color:var(--brand-600) !important;
+    }
+    .btn-info,
+    .btn-success,
+    .btn-warning{
+      color:#fff !important;
+      border-color:var(--brand-500) !important;
+      background:linear-gradient(135deg, #f59e0b, var(--brand-500)) !important;
+    }
+    .btn-info:hover,
+    .btn-success:hover,
+    .btn-warning:hover{
+      border-color:var(--brand-600) !important;
+      background:linear-gradient(135deg, var(--brand-600), var(--brand-400)) !important;
+    }
+    .progress{ background:#ffe8d1; }
+    .progress-bar,
+    .progress-bar.bg-info,
+    .progress-bar.bg-success,
+    .progress-bar.bg-primary{
+      background:linear-gradient(90deg, var(--brand-500), var(--brand-400)) !important;
+    }
+    .badge.bg-primary,
+    .badge.rounded-pill.bg-primary,
+    .bg-light-primary,
+    .badge-light-primary{
+      background:#ffedd5 !important;
+      color:#9a3412 !important;
+    }
+    .pagination .page-link{
+      color:var(--brand-700);
+      border-color:rgba(251, 146, 60, 0.22);
+    }
+    .pagination .page-item.active .page-link{
+      background:linear-gradient(135deg, var(--brand-600), var(--brand-400));
+      border-color:var(--brand-600);
+      color:#fff;
+    }
+    .alert-warning{
+      background:#fff7ed;
+      border-color:#fdba74;
+      color:#9a3412;
+    }
     /* preserve white text on dark login left panel */
     .login-left, .login-left * { color: #fff !important; }
   </style>

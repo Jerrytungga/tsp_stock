@@ -181,8 +181,8 @@ try {
             </div>
             <div class="card-body">
               <div class="table-responsive">
-                <table id="diff-table" class="table table-striped table-hover table-bordered" style="border-color: black;">
-                  <thead style="background-color: orange;">
+                <table id="diff-table" class="table table-striped table-hover table-bordered">
+                  <thead>
                     <tr>
                       <th>No</th>
                       <th>Material</th>

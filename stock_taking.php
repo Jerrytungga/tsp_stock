@@ -228,6 +228,33 @@ try {
   die("Error fetching data: " . $e->getMessage());
 }
 
+$totalRows = count($inventory_data);
+$assignedRows = 0;
+$updatedRows = 0;
+$differenceRows = 0;
+
+foreach ($inventory_data as $record) {
+  if (!empty($record['assigned_pic_id'])) {
+    $assignedRows++;
+  }
+
+  $hasNewStock = !is_null($record['new_available_stock']) && $record['new_available_stock'] !== '';
+  $hasNewLocation = !is_null($record['new_storage_bin']) && $record['new_storage_bin'] !== '';
+  if ($hasNewStock || $hasNewLocation) {
+    $updatedRows++;
+  }
+
+  if ($hasNewStock) {
+    $available = trim((string) ($record['available_stock'] ?? ''));
+    $newValue = trim((string) $record['new_available_stock']);
+    if ($available !== $newValue) {
+      $differenceRows++;
+    }
+  }
+}
+
+$pendingRows = max($totalRows - $updatedRows, 0);
+
 if(isset($_POST['update'])){
   $id = isset($_POST['id']) ? (int)$_POST['id'] : null;
   $new_stock = isset($_POST['new_stock']) && $_POST['new_stock'] !== '' ? $_POST['new_stock'] : null;
@@ -448,6 +475,352 @@ if(isset($_POST['upload'])){
     .table .diff-over  { background-color: #fff3cd !important; color: #856404 !important; }
     /* Ensure horizontal scrolling on small screens */
     .table-responsive { overflow-x: auto; }
+
+    .stock-shell {
+      display: grid;
+      gap: 1.5rem;
+    }
+
+    .stock-hero {
+      position: relative;
+      overflow: hidden;
+      border: 1px solid rgba(249, 115, 22, 0.15);
+      border-radius: 24px;
+      padding: 1.75rem;
+      background:
+        radial-gradient(circle at top right, rgba(251, 146, 60, 0.24), transparent 32%),
+        linear-gradient(135deg, rgba(255, 247, 237, 0.98), rgba(255, 255, 255, 0.96));
+      box-shadow: 0 20px 44px rgba(234, 88, 12, 0.08);
+    }
+
+    .stock-hero::after {
+      content: '';
+      position: absolute;
+      inset: auto -40px -60px auto;
+      width: 220px;
+      height: 220px;
+      border-radius: 50%;
+      background: rgba(249, 115, 22, 0.10);
+      filter: blur(10px);
+      pointer-events: none;
+    }
+
+    .stock-hero__content,
+    .stock-hero__meta {
+      position: relative;
+      z-index: 1;
+    }
+
+    .stock-kicker {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.45rem;
+      padding: 0.4rem 0.8rem;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.72);
+      color: #9a3412;
+      font-size: 0.82rem;
+      font-weight: 600;
+      letter-spacing: 0.03em;
+      text-transform: uppercase;
+    }
+
+    .stock-hero h4 {
+      margin: 1rem 0 0.55rem;
+      font-size: 1.85rem;
+      line-height: 1.2;
+      color: #7c2d12;
+    }
+
+    .stock-hero p {
+      max-width: 720px;
+      margin-bottom: 0;
+      color: #7c6a5b;
+    }
+
+    .stock-meta-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 1rem;
+      margin-top: 1.5rem;
+    }
+
+    .stock-stat {
+      border: 1px solid rgba(249, 115, 22, 0.14);
+      border-radius: 18px;
+      padding: 1rem 1.05rem;
+      background: rgba(255, 255, 255, 0.84);
+      box-shadow: 0 14px 30px rgba(234, 88, 12, 0.06);
+    }
+
+    .stock-stat__label {
+      display: block;
+      margin-bottom: 0.4rem;
+      font-size: 0.78rem;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: #9a3412;
+    }
+
+    .stock-stat__value {
+      font-size: 1.75rem;
+      font-weight: 700;
+      line-height: 1;
+      color: #111827;
+    }
+
+    .stock-stat__hint {
+      display: block;
+      margin-top: 0.45rem;
+      color: #7c6a5b;
+      font-size: 0.85rem;
+    }
+
+    .stock-panel {
+      border: 1px solid rgba(249, 115, 22, 0.14);
+      border-radius: 22px;
+      background: linear-gradient(180deg, rgba(255, 253, 249, 0.98), rgba(255, 247, 239, 0.98));
+      box-shadow: 0 18px 36px rgba(234, 88, 12, 0.08);
+    }
+
+    .stock-toolbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 1rem;
+      flex-wrap: wrap;
+      padding: 1.35rem 1.35rem 0;
+    }
+
+    .stock-toolbar__title h5 {
+      margin-bottom: 0.35rem;
+      color: #7c2d12;
+    }
+
+    .stock-toolbar__title p {
+      margin-bottom: 0;
+      color: #7c6a5b;
+    }
+
+    .stock-actions {
+      display: flex;
+      gap: 0.75rem;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    .stock-upload {
+      padding: 1.35rem;
+    }
+
+    .stock-upload-card {
+      border: 1px dashed rgba(249, 115, 22, 0.28);
+      border-radius: 18px;
+      padding: 1rem;
+      background: rgba(255, 255, 255, 0.76);
+    }
+
+    .stock-upload-card .input-group {
+      align-items: stretch;
+    }
+
+    .stock-upload-card .form-control {
+      min-height: 46px;
+    }
+
+    .stock-upload-card .btn {
+      min-width: 145px;
+    }
+
+    .stock-table-wrap {
+      padding: 0 1.35rem 1.35rem;
+    }
+
+    .stock-table {
+      min-width: 1380px;
+    }
+
+    .stock-table td,
+    .stock-table th {
+      white-space: nowrap;
+    }
+
+    .stock-table td:nth-child(7) {
+      white-space: normal;
+      min-width: 260px;
+    }
+
+    .stock-table .filter-row th {
+      background: #fffaf5;
+      padding-top: 0.7rem;
+      padding-bottom: 0.7rem;
+    }
+
+    .stock-table .filter-row .form-control {
+      min-width: 120px;
+      border-radius: 10px;
+      font-size: 0.82rem;
+    }
+
+    .row-number {
+      font-weight: 700;
+      color: #9a3412;
+    }
+
+    .cell-stack {
+      display: flex;
+      flex-direction: column;
+      gap: 0.15rem;
+      white-space: normal;
+    }
+
+    .cell-stack strong {
+      font-size: 0.94rem;
+      color: #111827;
+    }
+
+    .pill-soft {
+      display: inline-flex;
+      align-items: center;
+      padding: 0.28rem 0.65rem;
+      border-radius: 999px;
+      background: #ffedd5;
+      color: #9a3412;
+      font-size: 0.74rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    .location-chip {
+      display: inline-flex;
+      max-width: 180px;
+      padding: 0.3rem 0.65rem;
+      border-radius: 999px;
+      background: #fff7ed;
+      color: #9a3412;
+      font-weight: 600;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .difference {
+      font-weight: 700;
+      text-align: center;
+      min-width: 96px;
+    }
+
+    .difference.is-neutral {
+      color: #7c6a5b;
+      background: rgba(255, 247, 237, 0.7);
+    }
+
+    .status-done {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      padding: 0.34rem 0.72rem;
+      border-radius: 999px;
+      background: #dcfce7;
+      color: #166534;
+      font-weight: 700;
+    }
+
+    .btn-update-row {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.45rem;
+      border-radius: 999px;
+      padding-inline: 0.9rem;
+    }
+
+    .stock-empty {
+      padding: 2.5rem 1.5rem;
+      text-align: center;
+      color: #7c6a5b;
+    }
+
+    .modal-record-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 0.9rem;
+    }
+
+    .modal-readonly {
+      padding: 0.85rem 1rem;
+      border-radius: 14px;
+      border: 1px solid rgba(249, 115, 22, 0.14);
+      background: #fffaf5;
+      min-height: 100%;
+    }
+
+    .modal-readonly__label {
+      display: block;
+      margin-bottom: 0.35rem;
+      font-size: 0.76rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: #9a3412;
+    }
+
+    .modal-readonly__value {
+      color: #111827;
+      word-break: break-word;
+    }
+
+    .modal-diff-box {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.45rem;
+      padding: 0.55rem 0.8rem;
+      border-radius: 999px;
+      background: #fff7ed;
+      color: #9a3412;
+      font-weight: 700;
+    }
+
+    @media (max-width: 991.98px) {
+      .stock-meta-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .modal-record-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (max-width: 767.98px) {
+      .stock-hero,
+      .stock-upload,
+      .stock-table-wrap {
+        padding-left: 1rem;
+        padding-right: 1rem;
+      }
+
+      .stock-toolbar {
+        padding: 1rem 1rem 0;
+      }
+
+      .stock-meta-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .stock-hero h4 {
+        font-size: 1.45rem;
+      }
+
+      .stock-actions,
+      .stock-upload-card .input-group {
+        width: 100%;
+      }
+
+      .stock-upload-card .btn,
+      .stock-actions .btn {
+        width: 100%;
+      }
+    }
   </style>
 
   <!-- [ Main Content ] start -->
@@ -476,27 +849,70 @@ if(isset($_POST['upload'])){
       <div class="row">
         <!-- [ sample-page ] start -->
         <div class="col-sm-12">
-          <div class="card">
-            <div class="card-header">
-              <h5>Form Pengambilan Stok</h5>
-            </div>
-            <div class="card-body">
+          <div class="stock-shell">
+            <section class="stock-hero">
+              <div class="stock-hero__content">
+                <span class="stock-kicker"><i class="ti ti-scan"></i> Stock Taking Harian</span>
+                <h4>Input hasil pengecekan stok, pantau progres, dan temukan selisih lebih cepat.</h4>
+                <p>Halaman ini menampilkan data stock taking hari ini, status assignment PIC, serta update stok dan lokasi baru dalam satu tampilan yang lebih ringkas.</p>
+              </div>
+              <div class="stock-hero__meta stock-meta-grid">
+                <article class="stock-stat">
+                  <span class="stock-stat__label">Total Baris Hari Ini</span>
+                  <span class="stock-stat__value"><?php echo number_format($totalRows); ?></span>
+                  <span class="stock-stat__hint">Data stock taking yang sudah terunggah hari ini.</span>
+                </article>
+                <article class="stock-stat">
+                  <span class="stock-stat__label">Sudah Ditugaskan</span>
+                  <span class="stock-stat__value"><?php echo number_format($assignedRows); ?></span>
+                  <span class="stock-stat__hint">Baris yang sudah memiliki PIC penanggung jawab.</span>
+                </article>
+                <article class="stock-stat">
+                  <span class="stock-stat__label">Sudah Diperbarui</span>
+                  <span class="stock-stat__value"><?php echo number_format($updatedRows); ?></span>
+                  <span class="stock-stat__hint">Baris dengan stok baru atau lokasi baru yang sudah diisi.</span>
+                </article>
+                <article class="stock-stat">
+                  <span class="stock-stat__label">Ada Selisih</span>
+                  <span class="stock-stat__value"><?php echo number_format($differenceRows); ?></span>
+                  <span class="stock-stat__hint"><?php echo $pendingRows; ?> baris masih menunggu update.</span>
+                </article>
+              </div>
+            </section>
 
-              <div class="mb-3">
-                <a href="download_stock_template.php" class="btn btn-info btn-sm">Unduh Template Excel</a>
+            <section class="stock-panel">
+              <div class="stock-toolbar">
+                <div class="stock-toolbar__title">
+                  <h5>Form Pengambilan Stok</h5>
+                  <p>Unggah file Excel lalu lanjutkan update stok langsung dari tabel di bawah.</p>
+                </div>
+                <div class="stock-actions">
+                  <a href="download_stock_template.php" class="btn btn-outline-primary">
+                    <i class="ti ti-download"></i>
+                    Unduh Template Excel
+                  </a>
+                </div>
               </div>
-              <div class="mb-3 col-3">
-                <form method="post" enctype="multipart/form-data">
-                  <div class="input-group input-group-sm">
-                    <input type="file" name="excel_file" class="form-control form-control-sm" accept=".xlsx,.xls" required>
-                    <button type="submit" action="" name="upload" class="btn btn-success btn-sm">Unggah Excel</button>
-                  </div>
-                </form>
+
+              <div class="stock-upload">
+                <div class="stock-upload-card">
+                  <form method="post" enctype="multipart/form-data">
+                    <div class="input-group">
+                      <input type="file" name="excel_file" class="form-control" accept=".xlsx,.xls" required>
+                      <button type="submit" action="" name="upload" class="btn btn-primary">
+                        <i class="ti ti-upload"></i>
+                        Unggah Excel
+                      </button>
+                    </div>
+                    <div class="form-text mt-2">Gunakan template resmi agar kolom material, inventory number, batch, dan storage bin terbaca dengan benar.</div>
+                  </form>
+                </div>
               </div>
-             
-              <div class="table-responsive">
-                <table id="stock-table" class="table table-striped table-hover table-bordered" style="border-color: black;">
-                  <thead style="background-color: orange;">
+
+              <div class="stock-table-wrap">
+                <div class="table-responsive">
+                  <table id="stock-table" class="table table-striped table-hover table-bordered stock-table align-middle">
+                  <thead>
                     <tr>
                       <th>No</th>
                       <th>Area</th>
@@ -513,7 +929,7 @@ if(isset($_POST['upload'])){
                       <th>Action</th>
                       <th>Different</th>
                     </tr>
-                    <tr>
+                    <tr class="filter-row">
                       <th></th>
                       <th><input type="text" placeholder="Search Area" class="form-control form-control-sm column_search" data-column="1"></th>
                       <th><input type="text" placeholder="Search Type" class="form-control form-control-sm column_search" data-column="2"></th>
@@ -531,29 +947,49 @@ if(isset($_POST['upload'])){
                     </tr>
                   </thead>
                   <tbody>
+<?php if (empty($inventory_data)): ?>
+                    <tr>
+                      <td colspan="14" class="stock-empty">
+                        <div class="d-flex flex-column align-items-center gap-2">
+                          <span class="pill-soft">Belum Ada Data Hari Ini</span>
+                          <strong>Unggah file Excel untuk mulai proses stock taking.</strong>
+                          <span>Tabel akan otomatis terisi setelah data berhasil diunggah.</span>
+                        </div>
+                      </td>
+                    </tr>
+<?php endif; ?>
 <?php $no = 1; foreach($inventory_data as $item): ?>
                     <tr>
-                      <td><?php echo $no++; ?></td>
-                      <td><?php echo htmlspecialchars($item['area'] ?? ''); ?></td>
+                      <td><span class="row-number"><?php echo $no++; ?></span></td>
+                      <td><span class="pill-soft"><?php echo htmlspecialchars($item['area'] ?? '-'); ?></span></td>
                       <td><?php echo htmlspecialchars($item['type'] ?? ''); ?></td>
-                      <td><?php echo htmlspecialchars($item['material'] ?? ''); ?></td>
+                      <td>
+                        <div class="cell-stack">
+                          <strong><?php echo htmlspecialchars($item['material'] ?? ''); ?></strong>
+                          <span class="text-muted small">Material utama</span>
+                        </div>
+                      </td>
                       <td><?php echo htmlspecialchars($item['inventory_number'] ?? ''); ?></td>
                       <td><?php echo htmlspecialchars($item['batch'] ?? ''); ?></td>
-                      <td><?php echo htmlspecialchars($item['material_description'] ?? ''); ?></td>
-                      <td><?php echo htmlspecialchars($item['storage_bin'] ?? ''); ?></td>
-                      <td><?php echo htmlspecialchars($item['available_stock'] ?? ''); ?></td>
+                      <td>
+                        <div class="cell-stack">
+                          <span><?php echo htmlspecialchars($item['material_description'] ?? ''); ?></span>
+                        </div>
+                      </td>
+                      <td><span class="location-chip"><?php echo htmlspecialchars($item['storage_bin'] ?? ''); ?></span></td>
+                      <td><strong><?php echo htmlspecialchars($item['available_stock'] ?? ''); ?></strong></td>
                       <td>
                         <?php if (!is_null($item['new_available_stock'])): ?>
-                          <?php echo htmlspecialchars($item['new_available_stock']); ?>
+                          <span class="badge bg-light-primary"><?php echo htmlspecialchars($item['new_available_stock']); ?></span>
                         <?php else: ?>
-                          -
+                          <span class="text-muted">-</span>
                         <?php endif; ?>
                       </td>
                       <td>
                         <?php if (!is_null($item['new_storage_bin'])): ?>
-                          <?php echo htmlspecialchars($item['new_storage_bin']); ?>
+                          <span class="location-chip"><?php echo htmlspecialchars($item['new_storage_bin']); ?></span>
                         <?php else: ?>
-                          -
+                          <span class="text-muted">-</span>
                         <?php endif; ?>
                       </td>
                       <td>
@@ -566,7 +1002,7 @@ if(isset($_POST['upload'])){
                       </td>
                       <td>
                         <?php if (is_null($item['new_available_stock']) || is_null($item['new_storage_bin'])): ?>
-                          <button class="btn btn-sm btn-success update-btn"
+                            <button class="btn btn-sm btn-success update-btn btn-update-row"
                                   data-id="<?php echo $item['id']; ?>"
                                   data-available-stock="<?php echo htmlspecialchars($item['available_stock']); ?>"
                                   data-new-stock="<?php echo htmlspecialchars($item['new_available_stock'] ?? ''); ?>"
@@ -577,10 +1013,11 @@ if(isset($_POST['upload'])){
                                   data-batch="<?php echo htmlspecialchars($item['batch'] ?? ''); ?>"
                                   data-storage-bin="<?php echo htmlspecialchars($item['storage_bin'] ?? ''); ?>"
                                   data-material-description="<?php echo htmlspecialchars($item['material_description'] ?? ''); ?>">
+                            <i class="ti ti-edit"></i>
                             Update
                           </button>
                         <?php else: ?>
-                          <span class="text-success">Updated</span>
+                          <span class="status-done"><i class="ti ti-check"></i> Updated</span>
                         <?php endif; ?>
                       </td>
                       <?php
@@ -599,13 +1036,14 @@ if(isset($_POST['upload'])){
                           }
                         }
                       ?>
-                      <td class="difference <?php echo $diffClass; ?>">
+                      <td class="difference <?php echo $diffClass ?: 'is-neutral'; ?>">
                         <?php echo htmlspecialchars($diffDisplay); ?>
                       </td>
                     </tr>
 <?php endforeach; ?>
                   </tbody>
                 </table>
+              </div>
               </div>
             </div>
           </div>
@@ -628,21 +1066,23 @@ if(isset($_POST['upload'])){
           <form id="updateForm" method="post" action="">
             <input type="hidden" name="update" value="1">
             <input type="hidden" id="modalRecordId" name="id">
-            <div class="mb-2">
-              <label class="form-label">Area</label>
-              <input type="text" class="form-control" id="modalArea" disabled>
-            </div>
-            <div class="mb-2">
-              <label class="form-label">Material</label>
-              <input type="text" class="form-control" id="modalMaterial" disabled>
-            </div>
-            <div class="mb-2">
-              <label class="form-label">Part Description</label>
-              <textarea class="form-control" id="modalPartDescription" rows="2" disabled></textarea>
-            </div>
-            <div class="mb-2">
-              <label class="form-label">Current Location</label>
-              <input type="text" class="form-control" id="modalCurrentLocation" disabled>
+            <div class="modal-record-grid mb-3">
+              <div class="modal-readonly">
+                <span class="modal-readonly__label">Area</span>
+                <div class="modal-readonly__value" id="modalArea"></div>
+              </div>
+              <div class="modal-readonly">
+                <span class="modal-readonly__label">Material</span>
+                <div class="modal-readonly__value" id="modalMaterial"></div>
+              </div>
+              <div class="modal-readonly">
+                <span class="modal-readonly__label">Part Description</span>
+                <div class="modal-readonly__value" id="modalPartDescription"></div>
+              </div>
+              <div class="modal-readonly">
+                <span class="modal-readonly__label">Current Location</span>
+                <div class="modal-readonly__value" id="modalCurrentLocation"></div>
+              </div>
             </div>
             <div class="mb-3">
               <label class="form-label">New Stock</label>
@@ -653,7 +1093,7 @@ if(isset($_POST['upload'])){
               <input type="text" class="form-control" id="modalNewLocation" name="new_location" placeholder="Enter new location (optional)">
             </div>
             <div class="mb-2">
-              <small class="text-muted">Difference: <span id="modalDifference">0</span></small>
+              <span class="modal-diff-box">Difference: <span id="modalDifference">0</span></span>
             </div>
           </form>
         </div>
@@ -704,10 +1144,10 @@ if(isset($_POST['upload'])){
 
         modalAvailableStock = availableStock;
         $('#modalRecordId').val(id);
-        $('#modalArea').val(area);
-        $('#modalMaterial').val(material);
-        $('#modalPartDescription').val(materialDesc);
-        $('#modalCurrentLocation').val(storageBin);
+  $('#modalArea').text(area || '-');
+  $('#modalMaterial').text(material || '-');
+  $('#modalPartDescription').text(materialDesc || '-');
+  $('#modalCurrentLocation').text(storageBin || '-');
 
         if (newStock) {
           $('#modalNewStock').val(newStock).prop('disabled', true);

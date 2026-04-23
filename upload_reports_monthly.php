@@ -122,10 +122,8 @@ try {
 <body data-pc-preset="preset-1" data-pc-direction="ltr" data-pc-theme="light">
   <style>
     .page-header h4{font-weight:600}
-    .table thead th{background:linear-gradient(#f8f9fa,#f1f3f5)}
-    .table tbody tr:hover{background:#fbfbfd}
     .actions .btn{min-width:86px}
-    .card{box-shadow:0 1px 4px rgba(15,15,15,.06)}
+    .card{box-shadow:0 8px 22px rgba(234,88,12,.08)}
     .btn-outline-primary{border-radius:.35rem}
   </style>
   <?php include __DIR__ . '/layouts/preloader.html'; ?>

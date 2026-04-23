@@ -137,7 +137,7 @@ try {
 
   <style>
     .stat-card { border-left: 4px solid; padding: 20px; border-radius: 4px; }
-    .stat-card.primary { border-left-color: #007bff; background-color: #f0f7ff; }
+    .stat-card.primary { border-left-color: #ea580c; background-color: #fff7ed; }
     .stat-card.danger { border-left-color: #dc3545; background-color: #fff5f5; }
     .stat-card.warning { border-left-color: #ffc107; background-color: #fffbf0; }
     .stat-card.success { border-left-color: #0a7c0a; background-color: #f0fff4; }
@@ -310,8 +310,8 @@ try {
               </div>
 
               <div class="table-responsive">
-                <table class="table table-sm table-hover table-bordered" style="border-color: black;">
-                  <thead style="background-color: #f8f9fa;">
+                <table class="table table-sm table-hover table-bordered">
+                  <thead>
                     <tr>
                       <th>No</th>
                       <th>Jenis</th>

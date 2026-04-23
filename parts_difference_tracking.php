@@ -129,7 +129,7 @@ foreach ($difference_data as $item) {
             <div class="card-body">
               <div class="table-responsive">
                 <table class="table table-striped table-hover table-sm">
-                  <thead style="background-color: #f8d7da;">
+                  <thead>
                     <tr>
                       <th>Material</th>
                       <th>Inventory #</th>
@@ -177,7 +177,7 @@ foreach ($difference_data as $item) {
             <div class="card-body">
               <div class="table-responsive">
                 <table class="table table-striped table-hover table-sm">
-                  <thead style="background-color: #fff3cd;">
+                  <thead>
                     <tr>
                       <th>Material</th>
                       <th>Inventory #</th>
@@ -226,8 +226,8 @@ foreach ($difference_data as $item) {
             </div>
             <div class="card-body">
               <div class="table-responsive">
-                <table id="diff-table" class="table table-striped table-hover table-bordered" style="border-color: black;">
-                  <thead style="background-color: orange;">
+                <table id="diff-table" class="table table-striped table-hover table-bordered">
+                  <thead>
                     <tr>
                       <th>No</th>
                       <th>Area</th>

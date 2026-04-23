@@ -271,13 +271,13 @@ if (isset($_POST['history_update'])) {
 <?php include __DIR__ . '/layouts/preloader.html'; ?>
 <style>
 /* Friendly table styling */
-.table-friendly thead th { background: linear-gradient(90deg,#42a5f5,#1e88e5); color: #fff; border-bottom: none; position: sticky; top: 0; z-index: 10; }
-.table-friendly { border-radius: 6px; overflow: hidden; }
+.table-friendly thead th { background: linear-gradient(180deg,#fff1e6 0%, #ffe6cc 100%); color: #7c2d12; border-bottom: 1px solid rgba(251, 146, 60, 0.28); position: sticky; top: 0; z-index: 10; }
+.table-friendly { border-radius: 16px; overflow: hidden; }
 .table-friendly tbody tr.needs-review-row { background: #fff4e6 !important; border-left: 4px solid #ffb74d; }
-.table-friendly tbody tr.changed-row { background: #e8f5e9 !important; border-left: 4px solid #66bb6a; }
-.table-friendly tbody tr:hover { box-shadow: inset 0 0 0 9999px rgba(255,255,255,0.02); }
+.table-friendly tbody tr.changed-row { background: #fff7ed !important; border-left: 4px solid #fb923c; }
+.table-friendly tbody tr:hover { box-shadow: inset 0 0 0 9999px rgba(255,237,213,0.42); }
 .note-text { color: #b71c1c; font-weight: 600; }
-.small-note { font-size: 0.85em; color: #6b4b00; }
+.small-note { font-size: 0.85em; color: #9a3412; }
 /* Hero header styles */
 .page-hero { padding: 18px; }
 .page-hero .hero-icon { width:64px; height:64px; display:flex; align-items:center; justify-content:center; font-size:28px; border-radius:50%; background:rgba(255,255,255,0.12); }
@@ -315,7 +315,7 @@ if (isset($_POST['history_update'])) {
   }
 ?>
 <div class="container py-4">
-  <div class="page-hero rounded-3 mb-3" style="background: linear-gradient(135deg,#1e88e5 0,#21cbf3 100%);">
+  <div class="page-hero rounded-3 mb-3" style="background: linear-gradient(135deg,#ea580c 0,#fb923c 100%);">
     <div class="d-flex align-items-center">
       <div class="me-3">
         <div class="hero-icon" aria-hidden="true">📋</div>

@@ -112,21 +112,126 @@ try {
 <?php include __DIR__ . '/layouts/header.html'; ?>
 
       <style>
-        .hero { background: linear-gradient(90deg,#4f46e5,#06b6d4); color:#fff; padding:20px; border-radius:8px; margin-bottom:18px; }
-        .stat { padding:18px; border-radius:8px; color:#fff; }
-        .stat .value { font-size:1.6rem; font-weight:700; }
-        .stat .label { opacity:0.9; }
-        .card-compact { border-radius:8px; }
-        .pic-table td, .pic-table th { vertical-align:middle; }
-        .small-muted { color:#6b7280; }
-        @media (max-width:576px){ .hero { text-align:center } }
+        :root{
+          --card-radius: 14px;
+          --soft-shadow: 0 12px 28px rgba(234, 88, 12, .10);
+          --soft-border: 1px solid rgba(251, 146, 60, .18);
+        }
+
+        .pc-content{
+          padding-top: 20px;
+          padding-bottom: 24px;
+        }
+
+        .hero {
+          background: linear-gradient(120deg,#ea580c 0%, #f97316 55%, #fdba74 100%);
+          color:#fff;
+          padding:22px 24px;
+          border-radius: var(--card-radius);
+          margin-bottom: 18px;
+          box-shadow: var(--soft-shadow);
+        }
+        .hero h4{ font-weight: 700; letter-spacing: .2px; }
+        .hero .small-muted{ color: rgba(255,255,255,.85) !important; }
+
+        .stat {
+          padding:16px;
+          border-radius: var(--card-radius);
+          color:#fff;
+          min-height: 96px;
+          box-shadow: var(--soft-shadow);
+          transition: transform .18s ease, box-shadow .18s ease;
+        }
+        .stat:hover{
+          transform: translateY(-2px);
+          box-shadow: 0 14px 28px rgba(15, 23, 42, .12);
+        }
+        .stat .value {
+          font-size:1.45rem;
+          font-weight:700;
+          line-height: 1.2;
+          color:#fff !important;
+          text-shadow: 0 1px 2px rgba(0,0,0,.18);
+        }
+        .stat .label {
+          opacity:1;
+          font-size: .86rem;
+          margin-bottom: 2px;
+          color: rgba(255,255,255,.98) !important;
+          text-shadow: 0 1px 2px rgba(0,0,0,.18);
+        }
+        .stat svg{
+          flex: 0 0 36px;
+          width: 36px;
+          height: 36px;
+          padding: 7px;
+          border-radius: 10px;
+          background: rgba(255,255,255,.18);
+        }
+        .stat .small-muted{
+          color: rgba(255,255,255,.96) !important;
+        }
+
+        .card-compact {
+          border-radius: var(--card-radius);
+          border: var(--soft-border);
+          box-shadow: var(--soft-shadow);
+        }
+        .card-compact h6,
+        .card-compact .value{
+          color:#0f172a;
+        }
+        .small-muted { color:#7c6a5b; }
+
+        #picSearch{
+          border-radius: 10px;
+        }
+
+        /* Dark mode */
+        [data-pc-theme="dark"] .card-compact h6,
+        [data-pc-theme="dark"] .card-compact .value{
+          color:#e2e8f0;
+        }
+        [data-pc-theme="dark"] .hero{
+          background: linear-gradient(120deg,#7c2d12 0%, #c2410c 55%, #fb923c 100%);
+          box-shadow: 0 10px 24px rgba(0, 0, 0, .35);
+        }
+        [data-pc-theme="dark"] .card-compact{
+          border: 1px solid rgba(148,163,184,.22);
+          box-shadow: 0 10px 24px rgba(0,0,0,.28);
+        }
+        [data-pc-theme="dark"] .small-muted{
+          color:#94a3b8;
+        }
+        [data-pc-theme="dark"] .pic-table thead th{
+          color:#cbd5e1;
+          background:#1e293b;
+          border-bottom-color: rgba(148,163,184,.22);
+        }
+        [data-pc-theme="dark"] .pic-table tbody tr:hover{
+          background:#0f172a;
+        }
+        [data-pc-theme="dark"] .progress{
+          background:#334155;
+        }
+        [data-pc-theme="dark"] #picSearch{
+          background:#0f172a;
+          border-color:#334155;
+          color:#e2e8f0;
+        }
+
+        @media (max-width: 576px){
+          .hero { text-align:center; padding:18px; }
+          .stat { min-height: 88px; }
+          .pic-table-wrap{ max-height: 360px; }
+        }
       </style>
 
       <div class="pc-container"><div class="pc-content">
         <div class="hero d-flex justify-content-between align-items-center">
           <div>
             <h4 style="margin:0">Dasbor Inventaris</h4>
-            <div class="small-muted">Ringkasan cepat stok dan progres PIC</div>
+            <div class="small-muted">Ringkasan cepat stock taking dan progres PIC</div>
           </div>
           <div class="d-none d-sm-block text-end">
             <div class="small-muted">Diperbarui</div>
@@ -136,37 +241,37 @@ try {
 
         <div class="row g-3">
           <div class="col-md-3 col-sm-6">
-            <div class="stat bg-gradient-primary stat card-compact d-flex align-items-center" style="gap:12px;">
-              <svg width="36" height="36" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M3 7h18M3 12h18M3 17h18" stroke="#fff" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <div class="stat card-compact d-flex align-items-center" style="gap:12px; background:linear-gradient(90deg,#ea580c,#fb923c);">
+              <svg width="36" height="36" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M3 7h18M3 12h18M3 17h18" stroke="#ffffff" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
               <div>
-                <div class="label">Total Bagian</div>
-                <div class="value"><?php echo number_format($total_parts); ?></div>
+                <div class="label">Total Lokasi</div>
+                <div class="value" style="color:#ffffff !important;"><?php echo number_format($total_parts); ?></div>
               </div>
             </div>
           </div>
           <div class="col-md-3 col-sm-6">
-            <div class="stat bg-gradient-danger stat card-compact d-flex align-items-center" style="gap:12px; background:linear-gradient(90deg,#ef4444,#f97316);">
+            <div class="stat bg-gradient-danger card-compact d-flex align-items-center" style="gap:12px; background:linear-gradient(90deg,#c2410c,#f97316);">
               <svg width="36" height="36" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 9v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" stroke="#fff" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
               <div>
-                <div class="label">Bagian dengan Perbedaan</div>
+                <div class="label">Temuan Perbedaan</div>
                 <div class="value"><?php echo number_format($parts_with_diff); ?></div>
               </div>
             </div>
           </div>
           <div class="col-md-3 col-sm-6">
-            <div class="stat bg-gradient-success stat card-compact d-flex align-items-center" style="gap:12px; background:linear-gradient(90deg,#10b981,#06b6d4);">
+            <div class="stat bg-gradient-success card-compact d-flex align-items-center" style="gap:12px; background:linear-gradient(90deg,#fb923c,#fdba74);">
               <svg width="36" height="36" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M9 12l2 2 4-4" stroke="#fff" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" stroke="#fff" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
               <div>
-                <div class="label">Distok</div>
+                <div class="label">Ter PST</div>
                 <div class="value"><?php echo $stocked_pct; ?>% <small class="small-muted">(<?php echo number_format($stocked_count); ?>)</small></div>
               </div>
             </div>
           </div>
           <div class="col-md-3 col-sm-6">
-            <div class="stat bg-gradient-dark stat card-compact d-flex align-items-center" style="gap:12px; background:linear-gradient(90deg,#6d28d9,#0ea5a4);">
+            <div class="stat bg-gradient-dark card-compact d-flex align-items-center" style="gap:12px; background:linear-gradient(90deg,#9a3412,#f59e0b);">
               <svg width="36" height="36" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M8 7V3m8 4V3M3 11h18M5 21h14a2 2 0 002-2V7H3v12a2 2 0 002 2z" stroke="#fff" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
               <div>
-                <div class="label">Sesi</div>
+                <div class="label">Total Inventory</div>
                 <div class="value"><?php echo number_format($total_sessions); ?></div>
               </div>
             </div>
@@ -179,7 +284,7 @@ try {
               <div class="card-body">
                 <h6 class="mb-2">Pencapaian 12 Bulan</h6>
                 <div class="d-flex justify-content-between align-items-center mb-2" style="gap:12px;flex-wrap:wrap;">
-                  <div class="small-muted">Target per bulan: <strong><?php echo number_format($monthly_target); ?></strong></div>
+                  <div class="small-muted">Target PST per bulan: <strong><?php echo number_format($monthly_target); ?></strong></div>
                   <div class="small-muted">Bulan ini: <strong><?php echo number_format($current_month_saved); ?></strong> (<strong><?php echo $current_month_pct; ?>%</strong>)</div>
                   <div class="small-muted">Hari ini: <strong><?php echo number_format($today_saved); ?></strong> / <?php echo number_format($daily_target); ?> (<strong><?php echo $today_pct; ?>%</strong>)</div>
                 </div>
@@ -199,7 +304,7 @@ try {
                     <input id="picSearch" class="form-control form-control-sm" placeholder="Cari PIC..." style="width:180px;" />
                   </div>
                 </div>
-                <div class="table-responsive">
+                <div class="table-responsive pic-table-wrap">
                   <table class="table table-sm pic-table" id="picTable">
                     <thead><tr><th>PIC</th><th class="text-end">Total</th><th class="text-end">Disimpan</th><th class="text-end">Tertunda</th><th>Progres</th><th></th></tr></thead>
                     <tbody>
@@ -269,6 +374,11 @@ try {
           var projection = <?php echo json_encode($trend_series); ?>;
           var ctx = document.getElementById('achievementChart');
           if (!ctx) return;
+
+          var isDark = document.body.getAttribute('data-pc-theme') === 'dark';
+          var gridColor = isDark ? 'rgba(148,163,184,0.22)' : 'rgba(100,116,139,0.18)';
+          var tickColor = isDark ? '#cbd5e1' : '#475569';
+
           new Chart(ctx, {
             type: 'line',
             data: {
@@ -305,8 +415,11 @@ try {
             options: {
               responsive: true,
               maintainAspectRatio: false,
-              scales: { x: { grid: { display: false } }, y: { beginAtZero: true, ticks: { precision:0 } } },
-              plugins: { legend: { display: true } }
+              scales: {
+                x: { ticks: { color: tickColor }, grid: { color: gridColor } },
+                y: { beginAtZero: true, ticks: { precision:0, color: tickColor }, grid: { color: gridColor } }
+              },
+              plugins: { legend: { display: true, labels: { color: tickColor } } }
             }
           });
         })();

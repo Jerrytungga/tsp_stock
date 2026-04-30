@@ -72,11 +72,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update'])) {
 
 
 ?>
-
-<!DOCTYPE html>
-<html lang="en">
 <?php
-include 'db.php'; // Koneksi ke database pst_project
+// ── Second PHP block: DB setup + data fetch ────────────────────────────────
 
 // Buat tabel jika belum ada
 try {
@@ -327,115 +324,172 @@ if(isset($_POST['update'])){
 if(isset($_POST['upload'])){
     $file = $_FILES['excel_file']['tmp_name'];
     if($file){
+    if (!class_exists('ZipArchive')) {
+      header('Location: '.$_SERVER['PHP_SELF'].'?error=zip_missing');
+      exit;
+    }
         require 'vendor/autoload.php';
         $spreadsheet = \PhpOffice\PhpSpreadsheet\IOFactory::load($file);
         $worksheet = $spreadsheet->getActiveSheet();
-        // Use formatted strings to avoid scientific notation (e.g., 207E0402) becoming INF/float
+        // Use formatted strings to avoid scientific notation (e.g., 207E0402) becoming INF/float.
         $data = $worksheet->toArray(null, false, true, false);
-        array_shift($data); // skip header
+        $headerRow = array_shift($data);
+        if (!is_array($headerRow)) $headerRow = [];
+
+        $normalizeHeader = function ($value) {
+          $v = strtolower(trim((string)$value));
+          $v = preg_replace('/[^a-z0-9]+/', ' ', $v);
+          return trim((string)$v);
+        };
+
+        $headerMap = [];
+        foreach ($headerRow as $i => $h) {
+          $headerMap[$normalizeHeader($h)] = $i;
+        }
+
+        $findColumn = function (array $aliases) use ($headerMap, $normalizeHeader) {
+          foreach ($aliases as $alias) {
+            $key = $normalizeHeader($alias);
+            if (array_key_exists($key, $headerMap)) {
+              return $headerMap[$key];
+            }
+          }
+          return null;
+        };
+
+        $colMaterial   = $findColumn(['material']);
+        $colDesc       = $findColumn(['material description', 'description', 'deskripsi material']);
+        $colType       = $findColumn(['type', 'tipe']);
+        $colStorage    = $findColumn(['storage', 'storage bin', 'bin penyimpanan']);
+        $colSystem     = $findColumn(['stok system', 'system stock', 'available stock', 'stok tersedia']);
+        $colActual     = $findColumn(['stok actual', 'actual stock', 'new stock', 'stok baru']);
+        $colInventory  = $findColumn(['inventory record', 'inventory number', 'nomor inventaris']);
+        $colCreated    = $findColumn(['date created', 'created date', 'created at']);
+        $colDifferent  = $findColumn(['different', 'difference']);
+        $colPicName    = $findColumn(['pic pst', 'pic']);
+        $colRelocation = $findColumn(['relokasi', 'relocation', 'new location', 'lokasi baru']);
+        $colTrackDate  = $findColumn(['date tracking', 'tracking date']);
+        $colTrackDesc  = $findColumn(['tracking description', 'tracking note', 'catatan tracking']);
+        $colTrackStat  = $findColumn(['status tracking', 'tracking status']);
+        $colArea       = $findColumn(['area']);
+        $colBatch      = $findColumn(['batch']);
+
+        // Backward compatibility fallback for very old templates without clear headers.
+        if ($colMaterial === null && count($headerRow) >= 6) {
+          $colArea      = 0;
+          $colType      = 1;
+          $colMaterial  = 2;
+          $colInventory = 3;
+          $colBatch     = count($headerRow) >= 8 ? 4 : null;
+          $colDesc      = count($headerRow) >= 8 ? 5 : 4;
+          $colStorage   = count($headerRow) >= 8 ? 6 : 5;
+          $colSystem    = count($headerRow) >= 8 ? 7 : 6;
+        }
+
+        $extractCell = function ($row, $colIdx) {
+          if ($colIdx === null) return '';
+          return trim((string)($row[$colIdx] ?? ''));
+        };
+
+        $normalizeDateTime = function ($rawValue) {
+          if ($rawValue === null || $rawValue === '') return null;
+          if (is_numeric($rawValue)) {
+            try {
+              return \PhpOffice\PhpSpreadsheet\Shared\Date::excelToDateTimeObject((float)$rawValue)->format('Y-m-d H:i:s');
+            } catch (Exception $e) {
+              return null;
+            }
+          }
+          $ts = strtotime((string)$rawValue);
+          if ($ts === false) return null;
+          return date('Y-m-d H:i:s', $ts);
+        };
+
         $pdo->beginTransaction();
         try {
-              // Gunakan INSERT IGNORE agar baris duplikat tidak menyebabkan error/rollback
-              $insertStmt = $pdo->prepare("INSERT IGNORE INTO stock_taking (area, type, material, inventory_number, batch, material_description, storage_bin, available_stock) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
+              // Insert with broader field mapping so monitoring-style templates can be uploaded directly.
+              $insertStmt = $pdo->prepare("INSERT IGNORE INTO stock_taking (area, type, material, inventory_number, batch, material_description, storage_bin, available_stock, new_available_stock, new_storage_bin, resolution_notes, resolved_at, assigned_pic_id, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, CURRENT_TIMESTAMP))");
+              $picLookupStmt = $pdo->prepare("SELECT id FROM pic WHERE LOWER(name) = LOWER(?) LIMIT 1");
+              $picCache = [];
             $conversions = [];
             foreach($data as $idx => $row){
-              // Ambil storage_bin sebagai string terformat untuk menghindari notasi ilmiah/INF
               $excelRow = $idx + 2; // header di baris 1
-              $cellCount = count($row);
-              if ($cellCount >= 8) {
-                // New template with batch: storage_bin is column G (7)
-                $colLetter = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex(7); // kolom G (storage_bin)
-                $cellObj = $worksheet->getCell($colLetter.$excelRow);
-                // Prefer the formatted/displayed value so textual formatting (e.g. text or leading apostrophe)
-                // is preserved and Excel's scientific-notation conversions are avoided.
-                $formatted = $cellObj->getFormattedValue();
-                $storageBin = isset($formatted) ? (string)$formatted : (string)$cellObj->getValue();
-                // Detect scientific notation like 1.02E+103 or 1.02E103 and try to auto-convert
-                if (preg_match('/^([0-9]+(?:\.[0-9]+)?)[eE]([+\-]?\d+)$/', trim($storageBin), $m)) {
-                  $mantissa = $m[1];
-                  $exp = intval($m[2]);
-                  // Remove decimal point from mantissa
-                  $mantissaDigits = str_replace('.', '', $mantissa);
-                  // Pad exponent to 4 digits (domain-specific heuristic)
-                  $expPadded = str_pad((string)$exp, 4, '0', STR_PAD_LEFT);
-                  $converted = strtoupper($mantissaDigits . 'E' . $expPadded);
-                  $conversions[] = 'row '.$excelRow.' : '.$storageBin.' -> '.$converted;
-                  $storageBin = $converted;
-                }
-                $row[6] = $storageBin ?? '';
-              } elseif ($cellCount >= 7) {
-                // Template without batch: storage_bin is column F (6)
-                $colLetter = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex(6); // kolom F (storage_bin)
-                $cellObj = $worksheet->getCell($colLetter.$excelRow);
-                $formatted = $cellObj->getFormattedValue();
-                $storageBin = isset($formatted) ? (string)$formatted : (string)$cellObj->getValue();
-                if (preg_match('/^([0-9]+(?:\.[0-9]+)?)[eE]([+\-]?\d+)$/', trim($storageBin), $m)) {
-                  $mantissa = $m[1];
-                  $exp = intval($m[2]);
-                  $mantissaDigits = str_replace('.', '', $mantissa);
-                  $expPadded = str_pad((string)$exp, 4, '0', STR_PAD_LEFT);
-                  $converted = strtoupper($mantissaDigits . 'E' . $expPadded);
-                  $conversions[] = 'row '.$excelRow.' : '.$storageBin.' -> '.$converted;
-                  $storageBin = $converted;
-                }
-                $row[5] = $storageBin ?? '';
-              } elseif ($cellCount >= 6) {
-                // Legacy template: storage_bin is column E (5)
-                $colLetter = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex(5); // kolom E (storage_bin)
-                $cellObj = $worksheet->getCell($colLetter.$excelRow);
-                $formatted = $cellObj->getFormattedValue();
-                $storageBin = isset($formatted) ? (string)$formatted : (string)$cellObj->getValue();
-                if (preg_match('/^([0-9]+(?:\.[0-9]+)?)[eE]([+\-]?\d+)$/', trim($storageBin), $m)) {
-                  $mantissa = $m[1];
-                  $exp = intval($m[2]);
-                  $mantissaDigits = str_replace('.', '', $mantissa);
-                  $expPadded = str_pad((string)$exp, 4, '0', STR_PAD_LEFT);
-                  $converted = strtoupper($mantissaDigits . 'E' . $expPadded);
-                  $conversions[] = 'row '.$excelRow.' : '.$storageBin.' -> '.$converted;
-                  $storageBin = $converted;
-                }
-                $row[4] = $storageBin ?? '';
+
+              $material = $extractCell($row, $colMaterial);
+              $desc = $extractCell($row, $colDesc);
+              $type = $extractCell($row, $colType);
+              $area = $extractCell($row, $colArea);
+              $inventory = $extractCell($row, $colInventory);
+              $batch = $extractCell($row, $colBatch);
+              $systemStock = $extractCell($row, $colSystem);
+              $actualStock = $extractCell($row, $colActual);
+              $newLocation = $extractCell($row, $colRelocation);
+              $trackingDesc = $extractCell($row, $colTrackDesc);
+              $trackingStatus = strtolower($extractCell($row, $colTrackStat));
+              $picName = $extractCell($row, $colPicName);
+
+              if ($material === '' && $desc === '' && $inventory === '') {
+                continue;
               }
 
-              // Normalize row length by trimming trailing null/empty cells
-              // Ensure backward compatibility: if no inventory_number column, use material as inventory_number
-              if ($cellCount >= 8) {
-                // New template with batch: Area, Type, Material, Inventory Number, Batch, Material Description, Storage Bin, Available stock
-                $insertStmt->execute([
-                  $row[0] ?? '',
-                  $row[1] ?? '',
-                  $row[2] ?? '',
-                  $row[3] ?? '',
-                  $row[4] ?? '',
-                  $row[5] ?? '',
-                  $row[6] ?? '',
-                  $row[7] ?? ''
-                ]);
-              } elseif ($cellCount >= 7) {
-                // Expected order (no batch): Area, Type, Material, Inventory Number, Material Description, Storage Bin, Available stock
-                $insertStmt->execute([
-                  $row[0] ?? '',
-                  $row[1] ?? '',
-                  $row[2] ?? '',
-                  $row[3] ?? '',
-                  '', // batch empty
-                  $row[4] ?? '',
-                  $row[5] ?? '',
-                  $row[6] ?? ''
-                ]);
-              } elseif ($cellCount >= 6) {
-                // Legacy template: Area, Type, Material, Material Description, Storage Bin, Available stock
-                $insertStmt->execute([
-                  $row[0] ?? '',
-                  $row[1] ?? '',
-                  $row[2] ?? '',
-                  $row[2] ?? '', // inventory_number fallback to Material
-                  '', // batch empty
-                  $row[3] ?? '',
-                  $row[4] ?? '',
-                  $row[5] ?? ''
-                ]);
+              // Read storage from displayed value to preserve text representation in Excel.
+              $storageBin = '';
+              if ($colStorage !== null) {
+                $colLetter = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($colStorage + 1);
+                $cellObj = $worksheet->getCell($colLetter . $excelRow);
+                $formatted = $cellObj->getFormattedValue();
+                $storageBin = trim((string)(isset($formatted) ? $formatted : $cellObj->getValue()));
               }
+
+              if (preg_match('/^([0-9]+(?:\.[0-9]+)?)[eE]([+\-]?\d+)$/', $storageBin, $m)) {
+                $mantissaDigits = str_replace('.', '', $m[1]);
+                $expPadded = str_pad((string)intval($m[2]), 4, '0', STR_PAD_LEFT);
+                $converted = strtoupper($mantissaDigits . 'E' . $expPadded);
+                $conversions[] = 'row '.$excelRow.' : '.$storageBin.' -> '.$converted;
+                $storageBin = $converted;
+              }
+
+              if ($inventory === '') $inventory = $material;
+
+              $createdAt = $normalizeDateTime($colCreated !== null ? ($row[$colCreated] ?? null) : null);
+              $trackingDate = $normalizeDateTime($colTrackDate !== null ? ($row[$colTrackDate] ?? null) : null);
+
+              // Optional fallback: if actual and system are present but difference is empty, keep it computed in DB/UI only.
+              if ($trackingDesc === '') {
+                $trackingDesc = $extractCell($row, $colDifferent);
+              }
+
+              $resolvedAt = null;
+              if ($trackingDate !== null && (strpos($trackingStatus, 'resolve') !== false || strpos($trackingStatus, 'done') !== false || strpos($trackingStatus, 'close') !== false)) {
+                $resolvedAt = $trackingDate;
+              }
+
+              $assignedPicId = null;
+              if ($picName !== '') {
+                $picKey = strtolower($picName);
+                if (!array_key_exists($picKey, $picCache)) {
+                  $picLookupStmt->execute([$picName]);
+                  $picCache[$picKey] = $picLookupStmt->fetchColumn() ?: null;
+                }
+                $assignedPicId = $picCache[$picKey];
+              }
+
+              $insertStmt->execute([
+                $area,
+                $type,
+                $material,
+                $inventory,
+                $batch,
+                $desc,
+                $storageBin,
+                $systemStock,
+                $actualStock === '' ? null : $actualStock,
+                $newLocation === '' ? null : $newLocation,
+                $trackingDesc === '' ? null : $trackingDesc,
+                $resolvedAt,
+                $assignedPicId,
+                $createdAt
+              ]);
             }
             $pdo->commit();
             $convParam = '';
@@ -463,18 +517,199 @@ if(isset($_POST['upload'])){
     }
 }
 ?>
+<!DOCTYPE html>
+<html lang="en">
 <?php include __DIR__ . '/layouts/head.html'; ?>
 <body data-pc-preset="preset-1" data-pc-direction="ltr" data-pc-theme="light">
-  <?php include __DIR__ . '/layouts/preloader.html'; ?>
-  <?php include __DIR__ . '/layouts/sidebar.html'; ?>
-  <?php include __DIR__ . '/layouts/header.html'; ?>
+<?php include __DIR__ . '/layouts/preloader.html'; ?>
+<?php include __DIR__ . '/layouts/sidebar.html'; ?>
+<?php include __DIR__ . '/layouts/header.html'; ?>
 
-  <style>
-    /* Highlight differences regardless of striped row colors */
-    .table .diff-short { background-color: #f8d7da !important; color: #721c24 !important; }
-    .table .diff-over  { background-color: #fff3cd !important; color: #856404 !important; }
-    /* Ensure horizontal scrolling on small screens */
-    .table-responsive { overflow-x: auto; }
+
+<style>
+  /* ── Diff row highlights ───────────────────────────────────────── */
+  .diff-short { background-color: #fef2f2 !important; color: #b91c1c !important; font-weight: 700; }
+  .diff-over  { background-color: #fefce8 !important; color: #854d0e !important; font-weight: 700; }
+
+  /* ── Section card (matches monitoring_pst) ─────────────────────── */
+  .section-card {
+    border-radius: 14px;
+    border: 1px solid rgba(251,146,60,.25);
+    box-shadow: 0 10px 22px rgba(234,88,12,.10);
+  }
+  .section-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    padding: 14px 16px;
+    border-bottom: 1px solid rgba(251,146,60,.22);
+    background: linear-gradient(120deg,#fff7ed 0%,#ffedd5 100%);
+    border-top-left-radius: 14px;
+    border-top-right-radius: 14px;
+  }
+  .section-pill {
+    border-radius: 999px;
+    padding: 4px 10px;
+    font-size: .72rem;
+    font-weight: 700;
+    letter-spacing: .2px;
+    background: #f97316;
+    color: #fff;
+  }
+
+  /* ── Stat cards ────────────────────────────────────────────────── */
+  .stat-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0,1fr));
+    gap: 1rem;
+  }
+  .stat-card {
+    border: 1px solid rgba(249,115,22,.15);
+    border-radius: 16px;
+    padding: .95rem 1rem;
+    background: rgba(255,255,255,.92);
+    box-shadow: 0 8px 20px rgba(234,88,12,.07);
+  }
+  .stat-card__label {
+    display: block;
+    font-size: .73rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    color: #9a3412;
+    margin-bottom: .3rem;
+  }
+  .stat-card__value {
+    font-size: 1.7rem;
+    font-weight: 700;
+    line-height: 1;
+    color: #111827;
+  }
+  .stat-card__hint {
+    display: block;
+    margin-top: .35rem;
+    font-size: .82rem;
+    color: #7c6a5b;
+  }
+
+  /* ── Upload card ───────────────────────────────────────────────── */
+  .upload-card {
+    border-radius: 12px;
+    border: 1px dashed rgba(249,115,22,.3);
+    background: rgba(255,255,255,.85);
+    padding: 1rem;
+  }
+  .upload-card .form-control { min-height: 44px; }
+
+  /* ── Filter bar (matches monitoring_pst) ──────────────────────── */
+  .filter-card {
+    border-radius: 12px;
+    border: 1px solid rgba(251,146,60,.24);
+    background: #fff;
+    box-shadow: 0 8px 18px rgba(234,88,12,.08);
+  }
+  .filter-bar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    align-items: flex-end;
+  }
+  .filter-bar .form-control,
+  .filter-bar .form-select {
+    font-size: .83rem;
+    min-width: 130px;
+    max-width: 210px;
+  }
+  .filter-bar .form-control.search-wide {
+    min-width: 200px;
+    max-width: 300px;
+  }
+  .filter-label {
+    font-size: .72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .3px;
+    color: #64748b;
+    margin-bottom: 2px;
+  }
+
+  /* ── Input table ───────────────────────────────────────────────── */
+  .table-wrap { overflow: auto; max-height: 68vh; }
+  .input-table { min-width: 1550px; }
+  .input-table th {
+    white-space: nowrap;
+    font-size: .74rem;
+    text-transform: uppercase;
+    letter-spacing: .35px;
+    position: sticky;
+    top: 0;
+    z-index: 3;
+    background: #f8fafc;
+    box-shadow: inset 0 -1px 0 rgba(148,163,184,.35);
+  }
+  .input-table td { font-size: .82rem; vertical-align: middle; }
+  .desc-cell {
+    max-width: 260px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* ── Status pills (matches monitoring_pst) ─────────────────────── */
+  .status-pill {
+    border-radius: 999px;
+    padding: 4px 10px;
+    font-size: .72rem;
+    font-weight: 700;
+  }
+  .status-done  { background: #dcfce7; color: #166534; }
+  .status-open  { background: #ffedd5; color: #9a3412; }
+  .status-none  { background: #f1f5f9; color: #475569; }
+  .diff-plus { color: #166534; font-weight: 700; }
+  .diff-minus { color: #b91c1c; font-weight: 700; }
+
+  /* ── Modal ─────────────────────────────────────────────────────── */
+  .modal-record-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0,1fr));
+    gap: .9rem;
+  }
+  .modal-readonly {
+    padding: .85rem 1rem;
+    border-radius: 14px;
+    border: 1px solid rgba(249,115,22,.14);
+    background: #fffaf5;
+  }
+  .modal-readonly__label {
+    display: block;
+    margin-bottom: .3rem;
+    font-size: .76rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    color: #9a3412;
+  }
+  .modal-readonly__value { color: #111827; word-break: break-word; }
+  .modal-diff-box {
+    display: inline-flex;
+    align-items: center;
+    gap: .45rem;
+    padding: .55rem .8rem;
+    border-radius: 999px;
+    background: #fff7ed;
+    color: #9a3412;
+    font-weight: 700;
+  }
+
+  @media (max-width: 991px) {
+    .stat-grid { grid-template-columns: repeat(2, 1fr); }
+    .modal-record-grid { grid-template-columns: 1fr; }
+  }
+  @media (max-width: 575px) {
+    .stat-grid { grid-template-columns: 1fr; }
+  }
 
     .stock-shell {
       display: grid;
@@ -819,247 +1054,269 @@ if(isset($_POST['upload'])){
       .stock-upload-card .btn,
       .stock-actions .btn {
         width: 100%;
-      }
     }
   </style>
 
   <!-- [ Main Content ] start -->
   <div class="pc-container">
     <div class="pc-content">
-      <!-- [ breadcrumb ] start -->
+      <!-- breadcrumb -->
       <div class="page-header">
         <div class="page-block">
           <div class="row align-items-center">
             <div class="col-md-12">
               <div class="page-header-title">
-                <h5 class="m-b-10">Pengambilan Stok</h5>
+                <h5 class="m-b-10"><i class="ti ti-clipboard-data me-2"></i>PST Stock Input</h5>
               </div>
               <ul class="breadcrumb">
-                <li class="breadcrumb-item"><a href="index.php">Beranda</a></li>
-                <li class="breadcrumb-item"><a href="javascript: void(0)">Halaman</a></li>
-                <li class="breadcrumb-item" aria-current="page">Pengambilan Stok</li>
+                <li class="breadcrumb-item"><a href="dashboard.php">Dashboard</a></li>
+                <li class="breadcrumb-item" aria-current="page">PST Stock Input</li>
               </ul>
             </div>
           </div>
         </div>
       </div>
-      <!-- [ breadcrumb ] end -->
 
-      <!-- [ Main Content ] start -->
-      <div class="row">
-        <!-- [ sample-page ] start -->
-        <div class="col-sm-12">
-          <div class="stock-shell">
-            <section class="stock-hero">
-              <div class="stock-hero__content">
-                <span class="stock-kicker"><i class="ti ti-scan"></i> Stock Taking Harian</span>
-                <h4>Input hasil pengecekan stok, pantau progres, dan temukan selisih lebih cepat.</h4>
-                <p>Halaman ini menampilkan data stock taking hari ini, status assignment PIC, serta update stok dan lokasi baru dalam satu tampilan yang lebih ringkas.</p>
-              </div>
-              <div class="stock-hero__meta stock-meta-grid">
-                <article class="stock-stat">
-                  <span class="stock-stat__label">Total Baris Hari Ini</span>
-                  <span class="stock-stat__value"><?php echo number_format($totalRows); ?></span>
-                  <span class="stock-stat__hint">Data stock taking yang sudah terunggah hari ini.</span>
-                </article>
-                <article class="stock-stat">
-                  <span class="stock-stat__label">Sudah Ditugaskan</span>
-                  <span class="stock-stat__value"><?php echo number_format($assignedRows); ?></span>
-                  <span class="stock-stat__hint">Baris yang sudah memiliki PIC penanggung jawab.</span>
-                </article>
-                <article class="stock-stat">
-                  <span class="stock-stat__label">Sudah Diperbarui</span>
-                  <span class="stock-stat__value"><?php echo number_format($updatedRows); ?></span>
-                  <span class="stock-stat__hint">Baris dengan stok baru atau lokasi baru yang sudah diisi.</span>
-                </article>
-                <article class="stock-stat">
-                  <span class="stock-stat__label">Ada Selisih</span>
-                  <span class="stock-stat__value"><?php echo number_format($differenceRows); ?></span>
-                  <span class="stock-stat__hint"><?php echo $pendingRows; ?> baris masih menunggu update.</span>
-                </article>
-              </div>
-            </section>
+      <!-- Stat cards -->
+      <div class="stat-grid mb-3">
+        <article class="stat-card">
+          <span class="stat-card__label">Total Rows Today</span>
+          <span class="stat-card__value"><?= number_format($totalRows) ?></span>
+          <span class="stat-card__hint">Stock taking records uploaded today.</span>
+        </article>
+        <article class="stat-card">
+          <span class="stat-card__label">Assigned</span>
+          <span class="stat-card__value"><?= number_format($assignedRows) ?></span>
+          <span class="stat-card__hint">Rows with a PIC assigned.</span>
+        </article>
+        <article class="stat-card">
+          <span class="stat-card__label">Updated</span>
+          <span class="stat-card__value"><?= number_format($updatedRows) ?></span>
+          <span class="stat-card__hint">Rows with actual stock or new location filled.</span>
+        </article>
+        <article class="stat-card">
+          <span class="stat-card__label">Differences</span>
+          <span class="stat-card__value"><?= number_format($differenceRows) ?></span>
+          <span class="stat-card__hint"><?= $pendingRows ?> rows still pending update.</span>
+        </article>
+      </div>
 
-            <section class="stock-panel">
-              <div class="stock-toolbar">
-                <div class="stock-toolbar__title">
-                  <h5>Form Pengambilan Stok</h5>
-                  <p>Unggah file Excel lalu lanjutkan update stok langsung dari tabel di bawah.</p>
-                </div>
-                <div class="stock-actions">
-                  <a href="download_stock_template.php" class="btn btn-outline-primary">
-                    <i class="ti ti-download"></i>
-                    Unduh Template Excel
-                  </a>
-                </div>
+      <!-- Upload card -->
+      <div class="card filter-card mb-3">
+        <div class="card-body">
+          <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap" style="gap:8px;">
+            <div>
+              <strong>Upload Stock Data</strong>
+              <div class="text-muted" style="font-size:.82rem;">Upload an Excel file to populate today's stock taking table.</div>
+            </div>
+            <a href="download_stock_template.php" class="btn btn-sm btn-outline-primary">
+              <i class="ti ti-download me-1"></i>Download Template
+            </a>
+          </div>
+          <div class="upload-card">
+            <form method="post" enctype="multipart/form-data">
+              <div class="input-group">
+                <input type="file" name="excel_file" class="form-control" accept=".xlsx,.xls" required>
+                <button type="submit" name="upload" class="btn btn-primary">
+                  <i class="ti ti-upload me-1"></i>Upload Excel
+                </button>
               </div>
+              <div class="form-text mt-2">Use this template format: Material, Material Description, Type, Storage, Stok System, Inventory Record, Date Created.</div>
+            </form>
+          </div>
+        </div>
+      </div>
 
-              <div class="stock-upload">
-                <div class="stock-upload-card">
-                  <form method="post" enctype="multipart/form-data">
-                    <div class="input-group">
-                      <input type="file" name="excel_file" class="form-control" accept=".xlsx,.xls" required>
-                      <button type="submit" action="" name="upload" class="btn btn-primary">
-                        <i class="ti ti-upload"></i>
-                        Unggah Excel
-                      </button>
-                    </div>
-                    <div class="form-text mt-2">Gunakan template resmi agar kolom material, inventory number, batch, dan storage bin terbaca dengan benar.</div>
-                  </form>
-                </div>
-              </div>
-
-              <div class="stock-table-wrap">
-                <div class="table-responsive">
-                  <table id="stock-table" class="table table-striped table-hover table-bordered stock-table align-middle">
-                  <thead>
-                    <tr>
-                      <th>No</th>
-                      <th>Area</th>
-                      <th>Tipe</th>
-                      <th>Material</th>
-                      <th>Nomor Inventaris</th>
-                      <th>Batch</th>
-                      <th>Deskripsi Material</th>
-                      <th>Bin Penyimpanan</th>
-                      <th>Stok Tersedia</th>
-                      <th>Stok Baru</th>
-                      <th>Lokasi Baru</th>
-                      <th>PIC</th>
-                      <th>Action</th>
-                      <th>Different</th>
-                    </tr>
-                    <tr class="filter-row">
-                      <th></th>
-                      <th><input type="text" placeholder="Search Area" class="form-control form-control-sm column_search" data-column="1"></th>
-                      <th><input type="text" placeholder="Search Type" class="form-control form-control-sm column_search" data-column="2"></th>
-                      <th><input type="text" placeholder="Search Material" class="form-control form-control-sm column_search" data-column="3"></th>
-                      <th><input type="text" placeholder="Search Inventory Number" class="form-control form-control-sm column_search" data-column="4"></th>
-                      <th><input type="text" placeholder="Search Batch" class="form-control form-control-sm column_search" data-column="5"></th>
-                      <th><input type="text" placeholder="Search Material Description" class="form-control form-control-sm column_search" data-column="6"></th>
-                      <th><input type="text" placeholder="Search Storage Bin" class="form-control form-control-sm column_search" data-column="7"></th>
-                      <th><input type="text" placeholder="Search Available stock" class="form-control form-control-sm column_search" data-column="8"></th>
-                      <th></th>
-                      <th></th>
-                      <th><input type="text" placeholder="Search PIC" class="form-control form-control-sm column_search" data-column="11"></th>
-                      <th></th>
-                      <th></th>
-                    </tr>
-                  </thead>
-                  <tbody>
-<?php if (empty($inventory_data)): ?>
-                    <tr>
-                      <td colspan="14" class="stock-empty">
-                        <div class="d-flex flex-column align-items-center gap-2">
-                          <span class="pill-soft">Belum Ada Data Hari Ini</span>
-                          <strong>Unggah file Excel untuk mulai proses stock taking.</strong>
-                          <span>Tabel akan otomatis terisi setelah data berhasil diunggah.</span>
-                        </div>
-                      </td>
-                    </tr>
-<?php endif; ?>
-<?php $no = 1; foreach($inventory_data as $item): ?>
-                    <tr>
-                      <td><span class="row-number"><?php echo $no++; ?></span></td>
-                      <td><span class="pill-soft"><?php echo htmlspecialchars($item['area'] ?? '-'); ?></span></td>
-                      <td><?php echo htmlspecialchars($item['type'] ?? ''); ?></td>
-                      <td>
-                        <div class="cell-stack">
-                          <strong><?php echo htmlspecialchars($item['material'] ?? ''); ?></strong>
-                          <span class="text-muted small">Material utama</span>
-                        </div>
-                      </td>
-                      <td><?php echo htmlspecialchars($item['inventory_number'] ?? ''); ?></td>
-                      <td><?php echo htmlspecialchars($item['batch'] ?? ''); ?></td>
-                      <td>
-                        <div class="cell-stack">
-                          <span><?php echo htmlspecialchars($item['material_description'] ?? ''); ?></span>
-                        </div>
-                      </td>
-                      <td><span class="location-chip"><?php echo htmlspecialchars($item['storage_bin'] ?? ''); ?></span></td>
-                      <td><strong><?php echo htmlspecialchars($item['available_stock'] ?? ''); ?></strong></td>
-                      <td>
-                        <?php if (!is_null($item['new_available_stock'])): ?>
-                          <span class="badge bg-light-primary"><?php echo htmlspecialchars($item['new_available_stock']); ?></span>
-                        <?php else: ?>
-                          <span class="text-muted">-</span>
-                        <?php endif; ?>
-                      </td>
-                      <td>
-                        <?php if (!is_null($item['new_storage_bin'])): ?>
-                          <span class="location-chip"><?php echo htmlspecialchars($item['new_storage_bin']); ?></span>
-                        <?php else: ?>
-                          <span class="text-muted">-</span>
-                        <?php endif; ?>
-                      </td>
-                      <td>
-                        <?php if (!empty($item['pic_name'])): ?>
-                          <span class="badge bg-info text-dark"><?php echo htmlspecialchars($item['pic_name']); ?></span><br>
-                          <small class="text-muted"><?php echo htmlspecialchars($item['pic_nrp']); ?></small>
-                        <?php else: ?>
-                          <span class="text-muted">-</span>
-                        <?php endif; ?>
-                      </td>
-                      <td>
-                        <?php if (is_null($item['new_available_stock']) || is_null($item['new_storage_bin'])): ?>
-                            <button class="btn btn-sm btn-success update-btn btn-update-row"
-                                  data-id="<?php echo $item['id']; ?>"
-                                  data-available-stock="<?php echo htmlspecialchars($item['available_stock']); ?>"
-                                  data-new-stock="<?php echo htmlspecialchars($item['new_available_stock'] ?? ''); ?>"
-                                  data-new-location="<?php echo htmlspecialchars($item['new_storage_bin'] ?? ''); ?>"
-                                  data-area="<?php echo htmlspecialchars($item['area']); ?>"
-                                  data-material="<?php echo htmlspecialchars($item['material']); ?>"
-                                  data-inventory-number="<?php echo htmlspecialchars($item['inventory_number']); ?>"
-                                  data-batch="<?php echo htmlspecialchars($item['batch'] ?? ''); ?>"
-                                  data-storage-bin="<?php echo htmlspecialchars($item['storage_bin'] ?? ''); ?>"
-                                  data-material-description="<?php echo htmlspecialchars($item['material_description'] ?? ''); ?>">
-                            <i class="ti ti-edit"></i>
-                            Update
-                          </button>
-                        <?php else: ?>
-                          <span class="status-done"><i class="ti ti-check"></i> Updated</span>
-                        <?php endif; ?>
-                      </td>
-                      <?php
-                        $diffClass = '';
-                        $diffDisplay = '-';
-                        if (!is_null($item['new_available_stock'])) {
-                          $avail = $item['available_stock'];
-                          $new = $item['new_available_stock'];
-                          if (preg_match('/^-?\d+$/', trim((string)$new)) && preg_match('/^-?\d+$/', trim((string)$avail))) {
-                            $diffDisplay = (int)$new - (int)$avail;
-                            if ($diffDisplay < 0) {
-                              $diffClass = 'diff-short'; // short: merah
-                            } elseif ($diffDisplay > 0) {
-                              $diffClass = 'diff-over'; // over: kuning
-                            }
-                          }
-                        }
-                      ?>
-                      <td class="difference <?php echo $diffClass ?: 'is-neutral'; ?>">
-                        <?php echo htmlspecialchars($diffDisplay); ?>
-                      </td>
-                    </tr>
-<?php endforeach; ?>
-                  </tbody>
-                </table>
-              </div>
-              </div>
+      <!-- Filter bar -->
+      <?php
+        $filterAreas  = [];
+        $filterTypes2 = [];
+        $filterPics2  = [];
+        foreach ($inventory_data as $_fd) {
+          $a = trim((string)($_fd['area']  ?? ''));
+          $t = trim((string)($_fd['type']  ?? ''));
+          $p = trim((string)($_fd['pic_name'] ?? ''));
+          if ($a !== '') $filterAreas[$a]  = true;
+          if ($t !== '') $filterTypes2[$t] = true;
+          if ($p !== '' && $p !== '-') $filterPics2[$p] = true;
+        }
+        ksort($filterAreas);
+        ksort($filterTypes2);
+        ksort($filterPics2);
+      ?>
+      <div class="card filter-card mb-3">
+        <div class="card-body">
+          <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap" style="gap:8px;">
+            <div>
+              <strong>Filters</strong>
+              <div class="text-muted" style="font-size:.82rem;">Filter rows by multiple criteria simultaneously.</div>
+            </div>
+            <button id="btnClearFilters" class="btn btn-sm btn-outline-secondary"><i class="ti ti-x me-1"></i>Clear Filters</button>
+          </div>
+          <div class="filter-bar">
+            <div>
+              <div class="filter-label">Search</div>
+              <input id="fSearch" type="text" class="form-control search-wide" placeholder="Material / Description...">
+            </div>
+            <div>
+              <div class="filter-label">Area</div>
+              <select id="fArea" class="form-select">
+                <option value="">All Areas</option>
+                <?php foreach ($filterAreas as $fa => $_): ?>
+                  <option value="<?= htmlspecialchars($fa) ?>"><?= htmlspecialchars($fa) ?></option>
+                <?php endforeach; ?>
+              </select>
+            </div>
+            <div>
+              <div class="filter-label">Type</div>
+              <select id="fType" class="form-select">
+                <option value="">All Types</option>
+                <?php foreach ($filterTypes2 as $ft => $_): ?>
+                  <option value="<?= htmlspecialchars($ft) ?>"><?= htmlspecialchars($ft) ?></option>
+                <?php endforeach; ?>
+              </select>
+            </div>
+            <div>
+              <div class="filter-label">Update Status</div>
+              <select id="fStatus" class="form-select">
+                <option value="">All</option>
+                <option value="updated">Updated</option>
+                <option value="pending">Pending</option>
+                <option value="diff">Has Difference</option>
+              </select>
+            </div>
+            <div>
+              <div class="filter-label">PST PIC</div>
+              <select id="fPic" class="form-select">
+                <option value="">All PICs</option>
+                <?php foreach ($filterPics2 as $fp => $_): ?>
+                  <option value="<?= htmlspecialchars($fp) ?>"><?= htmlspecialchars($fp) ?></option>
+                <?php endforeach; ?>
+              </select>
             </div>
           </div>
         </div>
-        <!-- [ sample-page ] end -->
       </div>
-      <!-- [ Main Content ] end -->
+
+      <!-- Main data table -->
+      <div class="card section-card mb-4">
+        <div class="section-head">
+          <h5 class="mb-0">Stock Taking Data — Today</h5>
+          <span class="section-pill" id="visibleCountBadge"><?= number_format($totalRows) ?> rows</span>
+        </div>
+        <div class="table-wrap">
+          <table class="table table-striped table-hover mb-0 input-table" id="inputTable">
+            <thead class="table-light">
+              <tr>
+                <th style="width:42px">#</th>
+                <th>Area</th>
+                <th>Type</th>
+                <th>Material</th>
+                <th>Description</th>
+                <th>Inventory No.</th>
+                <th>Batch</th>
+                <th>Storage Bin</th>
+                <th class="text-end">System Stock</th>
+                <th class="text-end">Actual Stock</th>
+                <th>New Location</th>
+                <th>PST PIC</th>
+                <th class="text-end">Difference</th>
+                <th>Status</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              <?php if (empty($inventory_data)): ?>
+                <tr><td colspan="15" class="text-center text-muted py-5">
+                  <i class="ti ti-inbox" style="font-size:2rem;display:block;margin-bottom:.5rem;"></i>
+                  No data for today. Upload an Excel file to get started.
+                </td></tr>
+              <?php else: $no = 1; foreach ($inventory_data as $item):
+                $hasActual   = isset($item['new_available_stock']) && $item['new_available_stock'] !== '' && $item['new_available_stock'] !== null;
+                $hasLocation = isset($item['new_storage_bin'])     && $item['new_storage_bin']     !== '' && $item['new_storage_bin']     !== null;
+                $isUpdated   = $hasActual || $hasLocation;
+
+                $diffVal   = '-';
+                $diffClass = '';
+                $diffData  = 'none';
+                if ($hasActual) {
+                  $sysS = trim((string)($item['available_stock'] ?? ''));
+                  $actS = trim((string)$item['new_available_stock']);
+                  if (preg_match('/^-?\d+(\.\d+)?$/', $sysS) && preg_match('/^-?\d+(\.\d+)?$/', $actS)) {
+                    $d = (float)$actS - (float)$sysS;
+                    $diffVal = ($d > 0 ? '+' : '') . rtrim(rtrim(number_format($d, 4, '.', ''), '0'), '.');
+                    $diffClass = $d < 0 ? 'diff-minus' : ($d > 0 ? 'diff-plus' : '');
+                    $diffData  = $d != 0 ? 'diff' : 'nodiff';
+                  }
+                }
+
+                $statusClass = $isUpdated ? 'status-done' : 'status-none';
+                $statusText  = $isUpdated ? 'Updated' : 'Pending';
+                $statusData  = $isUpdated ? 'updated' : 'pending';
+                if ($isUpdated && $diffData === 'diff') $statusData = 'diff';
+
+                $picName = trim((string)($item['pic_name'] ?? ''));
+              ?>
+              <tr data-area="<?= htmlspecialchars(strtolower((string)($item['area'] ?? ''))) ?>"
+                  data-type="<?= htmlspecialchars(strtolower((string)($item['type'] ?? ''))) ?>"
+                  data-status="<?= $statusData ?>"
+                  data-pic="<?= htmlspecialchars(strtolower($picName)) ?>"
+                  data-search="<?= htmlspecialchars(strtolower((string)($item['material'] ?? '')) . ' ' . strtolower((string)($item['material_description'] ?? ''))) ?>">
+                <td class="text-muted" style="font-size:.75rem;"><?= $no++ ?></td>
+                <td><span class="status-pill status-open" style="font-size:.7rem;"><?= htmlspecialchars((string)($item['area'] ?? '-')) ?></span></td>
+                <td><?= htmlspecialchars((string)($item['type'] ?? '-')) ?></td>
+                <td><strong style="font-size:.82rem;"><?= htmlspecialchars((string)($item['material'] ?? '-')) ?></strong></td>
+                <td class="desc-cell" title="<?= htmlspecialchars((string)($item['material_description'] ?? '-')) ?>"><?= htmlspecialchars((string)($item['material_description'] ?? '-')) ?></td>
+                <td><?= htmlspecialchars((string)($item['inventory_number'] ?? '-')) ?></td>
+                <td><?= htmlspecialchars((string)($item['batch'] ?? '-')) ?></td>
+                <td><?= htmlspecialchars((string)($item['storage_bin'] ?? '-')) ?></td>
+                <td class="text-end"><?= htmlspecialchars((string)($item['available_stock'] ?? '-')) ?></td>
+                <td class="text-end actual-stock-cell"><?= $hasActual ? htmlspecialchars((string)$item['new_available_stock']) : '<span class="text-muted">-</span>' ?></td>
+                <td class="new-loc-cell"><?= $hasLocation ? htmlspecialchars((string)$item['new_storage_bin']) : '<span class="text-muted">-</span>' ?></td>
+                <td>
+                  <?php if ($picName !== ''): ?>
+                    <span style="font-size:.8rem;"><?= htmlspecialchars($picName) ?></span>
+                    <?php if (!empty($item['pic_nrp'])): ?>
+                      <div class="text-muted" style="font-size:.72rem;"><?= htmlspecialchars((string)$item['pic_nrp']) ?></div>
+                    <?php endif; ?>
+                  <?php else: ?>
+                    <span class="text-muted">-</span>
+                  <?php endif; ?>
+                </td>
+                <td class="text-end diff-cell <?= $diffClass ?>"><?= htmlspecialchars($diffVal) ?></td>
+                <td><span class="status-pill <?= $statusClass ?>"><?= $statusText ?></span></td>
+                <td>
+                  <button class="btn btn-sm btn-outline-primary update-btn"
+                          style="border-radius:999px;padding:3px 12px;font-size:.78rem;"
+                          data-id="<?= (int)$item['id'] ?>"
+                          data-available-stock="<?= htmlspecialchars((string)($item['available_stock'] ?? '')) ?>"
+                          data-new-stock="<?= htmlspecialchars((string)($item['new_available_stock'] ?? '')) ?>"
+                          data-new-location="<?= htmlspecialchars((string)($item['new_storage_bin'] ?? '')) ?>"
+                          data-area="<?= htmlspecialchars((string)($item['area'] ?? '')) ?>"
+                          data-material="<?= htmlspecialchars((string)($item['material'] ?? '')) ?>"
+                          data-inventory-number="<?= htmlspecialchars((string)($item['inventory_number'] ?? '')) ?>"
+                          data-batch="<?= htmlspecialchars((string)($item['batch'] ?? '')) ?>"
+                          data-storage-bin="<?= htmlspecialchars((string)($item['storage_bin'] ?? '')) ?>"
+                          data-material-description="<?= htmlspecialchars((string)($item['material_description'] ?? '')) ?>">
+                    <i class="ti ti-edit me-1"></i>Edit
+                  </button>
+                </td>
+              </tr>
+              <?php endforeach; endif; ?>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
     </div>
   </div>
-  <!-- [ Main Content ] end -->
+
   <!-- Update Modal -->
   <div class="modal fade" id="updateModal" tabindex="-1" aria-labelledby="updateModalLabel" aria-hidden="true">
     <div class="modal-dialog">
       <div class="modal-content">
-        <div class="modal-header">
-          <h5 class="modal-title" id="updateModalLabel">Update Stock</h5>
+        <div class="modal-header" style="background:linear-gradient(120deg,#fff7ed,#ffedd5);border-bottom:1px solid rgba(251,146,60,.22);">
+          <h5 class="modal-title" id="updateModalLabel" style="color:#7c2d12;"><i class="ti ti-edit me-2"></i>Update Actual Stock</h5>
           <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
         </div>
         <div class="modal-body">
@@ -1076,235 +1333,229 @@ if(isset($_POST['upload'])){
                 <div class="modal-readonly__value" id="modalMaterial"></div>
               </div>
               <div class="modal-readonly">
-                <span class="modal-readonly__label">Part Description</span>
+                <span class="modal-readonly__label">Material Description</span>
                 <div class="modal-readonly__value" id="modalPartDescription"></div>
               </div>
               <div class="modal-readonly">
-                <span class="modal-readonly__label">Current Location</span>
+                <span class="modal-readonly__label">Storage Bin</span>
                 <div class="modal-readonly__value" id="modalCurrentLocation"></div>
+              </div>
+              <div class="modal-readonly">
+                <span class="modal-readonly__label">Inventory No.</span>
+                <div class="modal-readonly__value" id="modalInventoryNumber"></div>
+              </div>
+              <div class="modal-readonly">
+                <span class="modal-readonly__label">System Stock</span>
+                <div class="modal-readonly__value" id="modalSystemStock"></div>
               </div>
             </div>
             <div class="mb-3">
-              <label class="form-label">New Stock</label>
-              <input type="text" class="form-control" id="modalNewStock" name="new_stock" placeholder="Enter new stock">
+              <label class="form-label fw-semibold">Actual Stock</label>
+              <input type="text" class="form-control" id="modalNewStock" name="new_stock" placeholder="Enter actual stock count">
             </div>
             <div class="mb-3">
-              <label class="form-label">Lokasi Baru</label>
-              <input type="text" class="form-control" id="modalNewLocation" name="new_location" placeholder="Enter new location (optional)">
+              <label class="form-label fw-semibold">New Location <span class="text-muted fw-normal">(optional)</span></label>
+              <input type="text" class="form-control" id="modalNewLocation" name="new_location" placeholder="Enter new storage bin if relocated">
             </div>
             <div class="mb-2">
-              <span class="modal-diff-box">Difference: <span id="modalDifference">0</span></span>
+              <span class="modal-diff-box">Difference: <strong id="modalDifference">—</strong></span>
             </div>
           </form>
         </div>
         <div class="modal-footer">
-          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-          <button type="submit" class="btn btn-primary" form="updateForm" id="modalSaveBtn">Save</button>
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-primary" form="updateForm" id="modalSaveBtn"><i class="ti ti-device-floppy me-1"></i>Save</button>
         </div>
       </div>
     </div>
   </div>
-  <?php include __DIR__ . '/layouts/footer.html'; ?>
-  <?php include __DIR__ . '/layouts/scripts.html'; ?>
 
-  <!-- DataTable Initialization -->
-  <script>
-    $(document).ready(function() {
-      var table = $('#stock-table').DataTable({
-        responsive: true,
-        paging: true,
-        pageLength: 25,
-        autoWidth: false,
-        columnDefs: [
-          { responsivePriority: 1, targets: 3 }, // Material
-          { responsivePriority: 2, targets: 4 }, // Inventory Number
-          { responsivePriority: 3, targets: 5 }  // Batch
-        ]
-      });
+<?php include __DIR__ . '/layouts/footer.html'; ?>
+<?php include __DIR__ . '/layouts/scripts.html'; ?>
+<script>
+(function () {
+  /* ── Filter logic ───────────────────────────────────────────────── */
+  var rows        = Array.from(document.querySelectorAll('#inputTable tbody tr[data-area]'));
+  var countBadge  = document.getElementById('visibleCountBadge');
+  var fSearch     = document.getElementById('fSearch');
+  var fArea       = document.getElementById('fArea');
+  var fType       = document.getElementById('fType');
+  var fStatus     = document.getElementById('fStatus');
+  var fPic        = document.getElementById('fPic');
+  var btnClear    = document.getElementById('btnClearFilters');
 
-      // Column search functionality
-      $('.column_search').on('keyup change', function() {
-        var columnIndex = $(this).data('column');
-        table.column(columnIndex).search(this.value).draw();
-      });
+  function applyFilters() {
+    var search = fSearch ? fSearch.value.trim().toLowerCase() : '';
+    var area   = fArea   ? fArea.value.toLowerCase()   : '';
+    var type   = fType   ? fType.value.toLowerCase()   : '';
+    var status = fStatus ? fStatus.value.toLowerCase() : '';
+    var pic    = fPic    ? fPic.value.toLowerCase()    : '';
 
-      var modalAvailableStock = 0;
-
-      // Open modal on update button click
-      $('#stock-table').on('click', '.update-btn', function() {
-        var btn = $(this);
-        var id = btn.data('id');
-        var availableStock = btn.data('available-stock') || '0';
-        var newStock = btn.data('new-stock');
-        var newLocation = btn.data('new-location');
-        var area = btn.data('area');
-        var material = btn.data('material');
-        var storageBin = btn.data('storage-bin') || '';
-        var materialDesc = btn.data('material-description') || '';
-
-        modalAvailableStock = availableStock;
-        $('#modalRecordId').val(id);
-  $('#modalArea').text(area || '-');
-  $('#modalMaterial').text(material || '-');
-  $('#modalPartDescription').text(materialDesc || '-');
-  $('#modalCurrentLocation').text(storageBin || '-');
-
-        if (newStock) {
-          $('#modalNewStock').val(newStock).prop('disabled', true);
-          $('#modalDifference').text('');
-        } else {
-          $('#modalNewStock').val('').prop('disabled', false);
-          $('#modalDifference').text('');
-        }
-
-        if (newLocation) {
-          $('#modalNewLocation').val(newLocation).prop('disabled', true);
-        } else {
-          $('#modalNewLocation').val('').prop('disabled', false);
-        }
-
-        $('#updateModal').modal('show');
-      });
-
-      // Recalculate difference in modal
-      $('#modalNewStock').on('input', function() {
-        var val = $(this).val();
-        var display = '';
-        if (val !== '') {
-          // Only show difference if input is a valid integer
-          if (/^-?\d+$/.test(val.trim())) {
-            var numVal = parseInt(val, 10);
-            // Try to parse available stock as well
-            var availVal = 0;
-            if (/^-?\d+$/.test(String(modalAvailableStock).trim())) {
-              availVal = parseInt(String(modalAvailableStock), 10);
-            }
-            display = numVal - availVal;
-          } else {
-            display = '-'; // Show dash for non-numeric input
-          }
-        }
-        $('#modalDifference').text(display);
-      });
-
-      // AJAX submit: update row without reloading the page
-      $('#updateForm').on('submit', function(e) {
-        e.preventDefault();
-        var newStockField = $('#modalNewStock');
-        var newLocationField = $('#modalNewLocation');
-        var hasStock = !newStockField.prop('disabled') && newStockField.val() !== '';
-        var hasLocation = !newLocationField.prop('disabled') && newLocationField.val() !== '';
-        if (!hasStock && !hasLocation) {
-          return; // nothing to send
-        }
-        var form = $(this);
-        var data = form.serialize() + '&ajax=1';
-        $('#modalSaveBtn').prop('disabled', true);
-        $.ajax({
-          url: '',
-          method: 'POST',
-          data: data,
-          dataType: 'json'
-        }).done(function(res){
-          if (res && res.success) {
-            var id = res.id;
-            var row = $('#stock-table').find('.update-btn[data-id="'+id+'"]').closest('tr');
-            if (row.length) {
-              // update New Stock cell (index 9) and New Location (10)
-              var newStockText = res.new_stock !== null && res.new_stock !== '' ? res.new_stock : '-';
-              var newLocText = res.new_location !== null && res.new_location !== '' ? res.new_location : '-';
-              row.find('td').eq(9).text(newStockText);
-              row.find('td').eq(10).text(newLocText);
-              // replace action cell with 'Updated'
-              row.find('td').eq(12).html('<span class="text-success">Updated</span>');
-              // update diff cell and classes
-              var diffCell = row.find('td.difference');
-              diffCell.removeClass('diff-short diff-over');
-              if (res.diffClass) diffCell.addClass(res.diffClass);
-              diffCell.text(res.diff);
-              // redraw datatable row
-              if (typeof table !== 'undefined') {
-                table.row(row).invalidate().draw(false);
-              }
-            }
-            $('#updateModal').modal('hide');
-            Swal.fire({icon:'success', title:'Tersimpan', timer:1000, showConfirmButton:false});
-          } else {
-            var msg = (res && res.error) ? res.error : 'Gagal memperbarui';
-            Swal.fire({icon:'error', title:'Error', text: msg});
-          }
-        }).fail(function(jqXHR, textStatus, errorThrown){
-          console.error('AJAX update failed', textStatus, errorThrown, jqXHR.responseText);
-          var serverMsg = '';
-          try {
-            // try parse JSON error
-            var parsed = JSON.parse(jqXHR.responseText || '{}');
-            serverMsg = parsed.error || parsed.message || '';
-          } catch(e) {
-            serverMsg = jqXHR.responseText || '';
-          }
-          var display = 'Gagal memperbarui (network)';
-          if (serverMsg) display += ': ' + (serverMsg.length>200?serverMsg.substring(0,200)+'...':serverMsg);
-          Swal.fire({icon:'error', title:'Error', text: display});
-        }).always(function(){
-          $('#modalSaveBtn').prop('disabled', false);
-        });
-      });
-
-      // Show SweetAlert only for Excel upload operations
-      try {
-        var params = new URLSearchParams(window.location.search);
-        // Upload success popup
-        if (params.get('upload') === '1') {
-          Swal.fire({
-            icon: 'success',
-            title: 'Upload berhasil',
-            timer: 1500,
-            showConfirmButton: false
-          });
-        }
-        // Upload-related errors only (no_file, duplicate)
-        if (params.get('error') === 'no_file') {
-          Swal.fire({
-            icon: 'error',
-            title: 'Gagal',
-            text: 'Silakan pilih file terlebih dahulu.'
-          });
-        }
-        if (params.get('error') === 'duplicate') {
-          Swal.fire({
-            icon: 'error',
-            title: 'Duplikat data',
-            text: 'Data dengan kombinasi Material dan Inventory Number yang sama sudah ada. Silakan periksa kembali file Excel Anda.'
-          });
-        }
-        if (params.get('converted') === '1' && params.get('conv')) {
-          try {
-            var decoded = JSON.parse(decodeURIComponent(escape(window.atob(params.get('conv')))));
-            var list = decoded.slice(0,5).join('\n');
-            Swal.fire({
-              icon: 'info',
-              title: 'Beberapa nilai Storage Bin otomatis dikonversi',
-              text: 'Contoh konversi:\n' + list + (decoded.length>5 ? '\n... dan ' + (decoded.length-5) + ' lainnya' : '')
-            });
-          } catch(e) {
-            // ignore
-          }
-        }
-        if (params.get('error') === 'scientific') {
-          var info = params.get('info') || '';
-          Swal.fire({
-            icon: 'error',
-            title: 'Format Storage Bin Salah',
-            text: 'Ditemukan nilai dalam notasi ilmiah pada upload: ' + info + '. Silakan ubah kolom Storage Bin menjadi format Text dan coba lagi.'
-          });
-        }
-      } catch (e) {
-        // ignore URL parsing errors
-      }
-
-      // Form submission is handled by standard POST; no AJAX
+    var visible = 0;
+    rows.forEach(function (row) {
+      var show = true;
+      if (search && !(row.getAttribute('data-search') || '').includes(search)) show = false;
+      if (show && area   && (row.getAttribute('data-area')   || '') !== area)   show = false;
+      if (show && type   && (row.getAttribute('data-type')   || '') !== type)   show = false;
+      if (show && status && (row.getAttribute('data-status') || '') !== status) show = false;
+      if (show && pic    && !(row.getAttribute('data-pic')   || '').includes(pic)) show = false;
+      row.style.display = show ? '' : 'none';
+      if (show) visible++;
     });
-  </script>
+    if (countBadge) countBadge.textContent = visible.toLocaleString('en-US') + ' rows';
+  }
+
+  [fArea, fType, fStatus, fPic].forEach(function (el) {
+    if (el) el.addEventListener('change', applyFilters);
+  });
+  if (fSearch) fSearch.addEventListener('input', applyFilters);
+  if (btnClear) {
+    btnClear.addEventListener('click', function () {
+      if (fSearch) fSearch.value = '';
+      if (fArea)   fArea.value   = '';
+      if (fType)   fType.value   = '';
+      if (fStatus) fStatus.value = '';
+      if (fPic)    fPic.value    = '';
+      applyFilters();
+    });
+  }
+  applyFilters();
+
+  /* ── Update modal ───────────────────────────────────────────────── */
+  var modalAvailableStock = '';
+
+  document.getElementById('inputTable').addEventListener('click', function (e) {
+    var btn = e.target.closest('.update-btn');
+    if (!btn) return;
+
+    var id        = btn.dataset.id;
+    var avail     = btn.dataset.availableStock || '';
+    var newStock  = btn.dataset.newStock       || '';
+    var newLoc    = btn.dataset.newLocation    || '';
+    var area      = btn.dataset.area           || '-';
+    var material  = btn.dataset.material       || '-';
+    var desc      = btn.dataset.materialDescription || '-';
+    var bin       = btn.dataset.storageBin     || '-';
+    var invNo     = btn.dataset.inventoryNumber|| '-';
+
+    modalAvailableStock = avail;
+
+    document.getElementById('modalRecordId').value           = id;
+    document.getElementById('modalArea').textContent          = area;
+    document.getElementById('modalMaterial').textContent      = material;
+    document.getElementById('modalPartDescription').textContent = desc;
+    document.getElementById('modalCurrentLocation').textContent = bin;
+    document.getElementById('modalInventoryNumber').textContent = invNo;
+    document.getElementById('modalSystemStock').textContent    = avail || '-';
+
+    var nsField = document.getElementById('modalNewStock');
+    var nlField = document.getElementById('modalNewLocation');
+    nsField.value    = newStock;
+    nsField.disabled = false;
+    nlField.value    = newLoc;
+    nlField.disabled = false;
+    document.getElementById('modalDifference').textContent = '—';
+
+    var modal = bootstrap.Modal.getOrCreate(document.getElementById('updateModal'));
+    modal.show();
+  });
+
+  document.getElementById('modalNewStock').addEventListener('input', function () {
+    var val   = this.value.trim();
+    var disp  = '—';
+    if (val !== '' && /^-?\d+(\.\d+)?$/.test(val) && /^-?\d+(\.\d+)?$/.test(modalAvailableStock)) {
+      var d = parseFloat(val) - parseFloat(modalAvailableStock);
+      disp = (d > 0 ? '+' : '') + d;
+    }
+    document.getElementById('modalDifference').textContent = disp;
+  });
+
+  /* ── AJAX submit ─────────────────────────────────────────────────── */
+  document.getElementById('updateForm').addEventListener('submit', function (e) {
+    e.preventDefault();
+    var nsField = document.getElementById('modalNewStock');
+    var nlField = document.getElementById('modalNewLocation');
+    var hasStock = !nsField.disabled && nsField.value.trim() !== '';
+    var hasLoc   = !nlField.disabled && nlField.value.trim() !== '';
+    if (!hasStock && !hasLoc) return;
+
+    var saveBtn = document.getElementById('modalSaveBtn');
+    saveBtn.disabled = true;
+
+    var formData = new FormData(document.getElementById('updateForm'));
+    formData.append('ajax', '1');
+
+    fetch('', { method: 'POST', body: new URLSearchParams(formData) })
+      .then(function (r) { return r.json(); })
+      .then(function (res) {
+        if (res && res.success) {
+          var row = document.querySelector('#inputTable .update-btn[data-id="' + res.id + '"]');
+          if (row) {
+            var tr = row.closest('tr');
+            var tds = tr.querySelectorAll('td');
+            // col 9 = actual stock, 10 = new location, 12 = diff, 13 = status
+            tds[9].textContent  = res.new_stock  || '-';
+            tds[10].textContent = res.new_location || '-';
+            var diffTd = tds[12];
+            diffTd.className = 'text-end diff-cell';
+            var dNum = parseFloat(res.diff);
+            if (!isNaN(dNum)) {
+              if (dNum < 0) diffTd.classList.add('diff-minus');
+              else if (dNum > 0) diffTd.classList.add('diff-plus');
+            }
+            diffTd.textContent = res.diff;
+            tds[13].innerHTML = '<span class="status-pill status-done">Updated</span>';
+            tr.setAttribute('data-status', (isNaN(dNum) || dNum === 0) ? 'updated' : 'diff');
+            // update btn dataset
+            row.dataset.newStock    = res.new_stock || '';
+            row.dataset.newLocation = res.new_location || '';
+          }
+          bootstrap.Modal.getInstance(document.getElementById('updateModal')).hide();
+          if (typeof Swal !== 'undefined') Swal.fire({ icon:'success', title:'Saved', timer:1000, showConfirmButton:false });
+        } else {
+          var msg = (res && res.error) ? res.error : 'Failed to update';
+          if (typeof Swal !== 'undefined') Swal.fire({ icon:'error', title:'Error', text: msg });
+        }
+      })
+      .catch(function (err) {
+        console.error(err);
+        if (typeof Swal !== 'undefined') Swal.fire({ icon:'error', title:'Network Error', text: String(err) });
+      })
+      .finally(function () { saveBtn.disabled = false; });
+  });
+
+  /* ── Upload feedback ─────────────────────────────────────────────── */
+  try {
+    var params = new URLSearchParams(window.location.search);
+    if (params.get('upload') === '1') {
+      Swal.fire({ icon:'success', title:'Upload successful', timer:1500, showConfirmButton:false });
+    }
+    if (params.get('error') === 'no_file') {
+      Swal.fire({ icon:'error', title:'No file selected', text:'Please choose an Excel file first.' });
+    }
+    if (params.get('error') === 'duplicate') {
+      Swal.fire({ icon:'warning', title:'Duplicate data', text:'Some rows already exist and were skipped.' });
+    }
+    if (params.get('error') === 'zip_missing') {
+      Swal.fire({
+        icon:'error',
+        title:'PHP ZIP extension is missing',
+        text:'Please enable extension=zip in php.ini (Laragon), then restart Apache/PHP and try upload again.'
+      });
+    }
+    if (params.get('converted') === '1' && params.get('conv')) {
+      try {
+        var decoded = JSON.parse(decodeURIComponent(escape(window.atob(params.get('conv')))));
+        var list = decoded.slice(0,5).join('\n');
+        Swal.fire({ icon:'info', title:'Storage Bin auto-converted', text: list + (decoded.length>5 ? '\n...and ' + (decoded.length-5) + ' more' : '') });
+      } catch(e) {}
+    }
+    if (params.get('error') === 'scientific') {
+      var info = params.get('info') || '';
+      Swal.fire({ icon:'error', title:'Scientific notation detected', text: 'Storage Bin column has scientific notation values: ' + info + '. Format the column as Text and retry.' });
+    }
+  } catch(e) {}
+})();
+</script>
 </body>
 </html>

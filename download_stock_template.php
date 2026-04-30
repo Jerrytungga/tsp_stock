@@ -17,38 +17,39 @@ use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 $spreadsheet = new Spreadsheet();
 $sheet = $spreadsheet->getActiveSheet();
 
-// Set headers
-$sheet->setCellValue('A1', 'Area');
-$sheet->setCellValue('B1', 'Type');
-$sheet->setCellValue('C1', 'Material');
-$sheet->setCellValue('D1', 'Inventory Number');
-$sheet->setCellValue('E1', 'Batch');
-$sheet->setCellValue('F1', 'Material Description');
-$sheet->setCellValue('G1', 'Storage Bin');
-$sheet->setCellValue('H1', 'Available stock');
+// Template headers exactly as requested.
+$headers = [
+    'Material',
+    'Material Description',
+    'Type',
+    'Storage',
+    'Stok System',
+    'Inventory Record',
+    'Date Created',
+];
 
-// Set column widths
-$sheet->getColumnDimension('A')->setWidth(10);
-$sheet->getColumnDimension('B')->setWidth(10);
-$sheet->getColumnDimension('C')->setWidth(15);
-$sheet->getColumnDimension('D')->setWidth(20);
-$sheet->getColumnDimension('E')->setWidth(15);
-$sheet->getColumnDimension('F')->setWidth(30);
-$sheet->getColumnDimension('G')->setWidth(15);
-$sheet->getColumnDimension('H')->setWidth(15);
+foreach ($headers as $idx => $header) {
+    $col = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($idx + 1);
+    $sheet->setCellValue($col . '1', $header);
+    $sheet->getColumnDimension($col)->setWidth(20);
+}
 
-// Ensure storage_bin column (G) is formatted as text to prevent Excel converting values to scientific notation
-$sheet->getStyle('G')->getNumberFormat()->setFormatCode(\PhpOffice\PhpSpreadsheet\Style\NumberFormat::FORMAT_TEXT);
+$sheet->getColumnDimension('B')->setWidth(36);
+$sheet->getColumnDimension('D')->setWidth(18);
+$sheet->getColumnDimension('F')->setWidth(22);
+$sheet->getColumnDimension('G')->setWidth(20);
 
-// Add sample data (optional)
-$sheet->setCellValue('A2', '001');
-$sheet->setCellValue('B2', 'Part');
-$sheet->setCellValue('C2', '2313833210');
-$sheet->setCellValue('D2', 'INV-2313833210');
-$sheet->setCellValue('E2', 'BATCH-001');
-$sheet->setCellValue('F2', 'LOCKNUT, W/O INSERT, 5/8"-18 NF,');
-$sheet->setCellValue('G2', '103A0101');
-$sheet->setCellValue('H2', '450');
+// Keep Storage column text formatted to prevent scientific notation conversion.
+$sheet->getStyle('D')->getNumberFormat()->setFormatCode(\PhpOffice\PhpSpreadsheet\Style\NumberFormat::FORMAT_TEXT);
+
+// Sample row
+$sheet->setCellValue('A2', '2313833210');
+$sheet->setCellValue('B2', 'LOCKNUT, W/O INSERT, 5/8"-18 NF,');
+$sheet->setCellValue('C2', 'TM1');
+$sheet->setCellValue('D2', '103A0101');
+$sheet->setCellValue('E2', '450');
+$sheet->setCellValue('F2', 'INV-2313833210');
+$sheet->setCellValue('G2', date('Y-m-d H:i'));
 
 // Output file
 header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');

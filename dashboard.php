@@ -6,6 +6,10 @@ if (empty($_SESSION['user_id'])) {
 }
 include 'db.php';
 
+// Define TSP and UTPE location criteria
+$tsp_condition = "((l.tipe='TM1' AND l.area IN ('001','002','003')) OR (l.tipe='TM2' AND l.area IN ('001','002','003','008')))";
+$utpe_condition = "l.area IN ('001','002','007')";
+
 $total_parts = 0; $parts_with_diff = 0; $stocked_count = 0; $total_sessions = 0;
 $tm1_count = 0; $tm2_count = 0; $picProgress = []; $recentSessions = [];
 try {
@@ -24,9 +28,10 @@ try {
   // keep defaults on error
 }
 
-// Prepare monthly achievement data (last 12 months) - count of saved items per month
+// Prepare monthly achievement data (last 12 months) - count of saved items per month - TSP
 $monthly_labels = [];
-$monthly_counts = [];
+$monthly_counts_tsp = [];
+$monthly_counts_utpe = [];
 try {
   // Start chart from January 2026
   $start = new DateTime('first day of January 2026');
@@ -37,44 +42,104 @@ try {
     $monthly_labels[] = $start->format('M Y');
     $start->modify('+1 month');
   }
-  $stmt = $pdo->prepare("SELECT DATE_FORMAT(created_at, '%Y-%m') AS ym, COUNT(*) AS c FROM stock_taking WHERE ((new_available_stock IS NOT NULL AND new_available_stock != '') OR (new_storage_bin IS NOT NULL AND new_storage_bin != '')) AND created_at >= DATE_SUB(DATE_FORMAT(CURDATE(), '%Y-%m-01'), INTERVAL 11 MONTH) GROUP BY ym ORDER BY ym ASC");
+  // TSP monthly data
+  $stmt = $pdo->prepare("SELECT DATE_FORMAT(s.created_at, '%Y-%m') AS ym, COUNT(*) AS c FROM stock_taking s 
+    LEFT JOIN lokasi l ON TRIM(s.storage_bin) = l.kode_lokasi 
+    WHERE ((s.new_available_stock IS NOT NULL AND s.new_available_stock != '') OR (s.new_storage_bin IS NOT NULL AND s.new_storage_bin != '')) 
+    AND s.created_at >= DATE_SUB(DATE_FORMAT(CURDATE(), '%Y-%m-01'), INTERVAL 11 MONTH) 
+    AND $tsp_condition 
+    GROUP BY ym ORDER BY ym ASC");
   $stmt->execute();
   $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
-  $map = [];
-  foreach ($rows as $r) { $map[$r['ym']] = (int)$r['c']; }
-  foreach ($months as $m) { $monthly_counts[] = isset($map[$m]) ? $map[$m] : 0; }
+  $map_tsp = [];
+  foreach ($rows as $r) { $map_tsp[$r['ym']] = (int)$r['c']; }
+  foreach ($months as $m) { $monthly_counts_tsp[] = isset($map_tsp[$m]) ? $map_tsp[$m] : 0; }
+  
+  // UTPE monthly data
+  $stmt = $pdo->prepare("SELECT DATE_FORMAT(s.created_at, '%Y-%m') AS ym, COUNT(*) AS c FROM stock_taking s 
+    LEFT JOIN lokasi l ON TRIM(s.storage_bin) = l.kode_lokasi 
+    WHERE ((s.new_available_stock IS NOT NULL AND s.new_available_stock != '') OR (s.new_storage_bin IS NOT NULL AND s.new_storage_bin != '')) 
+    AND s.created_at >= DATE_SUB(DATE_FORMAT(CURDATE(), '%Y-%m-01'), INTERVAL 11 MONTH) 
+    AND $utpe_condition 
+    GROUP BY ym ORDER BY ym ASC");
+  $stmt->execute();
+  $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+  $map_utpe = [];
+  foreach ($rows as $r) { $map_utpe[$r['ym']] = (int)$r['c']; }
+  foreach ($months as $m) { $monthly_counts_utpe[] = isset($map_utpe[$m]) ? $map_utpe[$m] : 0; }
 } catch (Exception $e) {
   // keep empty arrays on error
+  $monthly_counts_tsp = array_fill(0, 12, 0);
+  $monthly_counts_utpe = array_fill(0, 12, 0);
 }
 
-// Monthly target and this-month progress
-$monthly_target = 3200;
+// TSP Monthly target and this-month progress
+$monthly_target_tsp = 3000;
 $current_month_ym = date('Y-m');
 try {
-  $stmt2 = $pdo->prepare("SELECT COUNT(*) FROM stock_taking WHERE ((new_available_stock IS NOT NULL AND new_available_stock != '') OR (new_storage_bin IS NOT NULL AND new_storage_bin != '')) AND DATE_FORMAT(created_at, '%Y-%m') = ?");
+  $stmt2 = $pdo->prepare("SELECT COUNT(*) FROM stock_taking s 
+    LEFT JOIN lokasi l ON TRIM(s.storage_bin) = l.kode_lokasi 
+    WHERE ((s.new_available_stock IS NOT NULL AND s.new_available_stock != '') OR (s.new_storage_bin IS NOT NULL AND s.new_storage_bin != '')) 
+    AND DATE_FORMAT(s.created_at, '%Y-%m') = ? 
+    AND $tsp_condition");
   $stmt2->execute([$current_month_ym]);
-  $current_month_saved = (int)$stmt2->fetchColumn();
+  $current_month_saved_tsp = (int)$stmt2->fetchColumn();
 } catch (Exception $e) {
-  $current_month_saved = 0;
+  $current_month_saved_tsp = 0;
 }
-$current_month_pct = $monthly_target > 0 ? round($current_month_saved / $monthly_target * 100, 1) : 0;
-$target_series = array_fill(0, count($monthly_labels), $monthly_target);
+$current_month_pct_tsp = $monthly_target_tsp > 0 ? round($current_month_saved_tsp / $monthly_target_tsp * 100, 1) : 0;
+$target_series_tsp = array_fill(0, count($monthly_labels), $monthly_target_tsp);
 
-// Daily target and today's progress
-$daily_target = 150;
+// UTPE Monthly target and this-month progress
+$monthly_target_utpe = 1000;
+try {
+  $stmt2 = $pdo->prepare("SELECT COUNT(*) FROM stock_taking s 
+    LEFT JOIN lokasi l ON TRIM(s.storage_bin) = l.kode_lokasi 
+    WHERE ((s.new_available_stock IS NOT NULL AND s.new_available_stock != '') OR (s.new_storage_bin IS NOT NULL AND s.new_storage_bin != '')) 
+    AND DATE_FORMAT(s.created_at, '%Y-%m') = ? 
+    AND $utpe_condition");
+  $stmt2->execute([$current_month_ym]);
+  $current_month_saved_utpe = (int)$stmt2->fetchColumn();
+} catch (Exception $e) {
+  $current_month_saved_utpe = 0;
+}
+$current_month_pct_utpe = $monthly_target_utpe > 0 ? round($current_month_saved_utpe / $monthly_target_utpe * 100, 1) : 0;
+$target_series_utpe = array_fill(0, count($monthly_labels), $monthly_target_utpe);
+
+// TSP Daily target and today's progress
+$daily_target_tsp = 150;
 $today_ym = date('Y-m-d');
 try {
-  $stmt3 = $pdo->prepare("SELECT COUNT(*) FROM stock_taking WHERE ((new_available_stock IS NOT NULL AND new_available_stock != '') OR (new_storage_bin IS NOT NULL AND new_storage_bin != '')) AND DATE(created_at) = ?");
+  $stmt3 = $pdo->prepare("SELECT COUNT(*) FROM stock_taking s 
+    LEFT JOIN lokasi l ON TRIM(s.storage_bin) = l.kode_lokasi 
+    WHERE ((s.new_available_stock IS NOT NULL AND s.new_available_stock != '') OR (s.new_storage_bin IS NOT NULL AND s.new_storage_bin != '')) 
+    AND DATE(s.created_at) = ? 
+    AND $tsp_condition");
   $stmt3->execute([$today_ym]);
-  $today_saved = (int)$stmt3->fetchColumn();
+  $today_saved_tsp = (int)$stmt3->fetchColumn();
 } catch (Exception $e) {
-  $today_saved = 0;
+  $today_saved_tsp = 0;
 }
-$today_pct = $daily_target > 0 ? round($today_saved / $daily_target * 100, 1) : 0;
+$today_pct_tsp = $daily_target_tsp > 0 ? round($today_saved_tsp / $daily_target_tsp * 100, 1) : 0;
+
+// UTPE Daily target and today's progress
+$daily_target_utpe = 50;
+try {
+  $stmt3 = $pdo->prepare("SELECT COUNT(*) FROM stock_taking s 
+    LEFT JOIN lokasi l ON TRIM(s.storage_bin) = l.kode_lokasi 
+    WHERE ((s.new_available_stock IS NOT NULL AND s.new_available_stock != '') OR (s.new_storage_bin IS NOT NULL AND s.new_storage_bin != '')) 
+    AND DATE(s.created_at) = ? 
+    AND $utpe_condition");
+  $stmt3->execute([$today_ym]);
+  $today_saved_utpe = (int)$stmt3->fetchColumn();
+} catch (Exception $e) {
+  $today_saved_utpe = 0;
+}
+$today_pct_utpe = $daily_target_utpe > 0 ? round($today_saved_utpe / $daily_target_utpe * 100, 1) : 0;
 
 $stocked_pct = $total_parts > 0 ? round($stocked_count / $total_parts * 100, 1) : 0;
 
-// Build projection series: continue trend from current month towards monthly target
+// Build TSP projection series: continue trend from current month towards monthly target
 try {
   $months_list = [];
   $start2 = new DateTime('first day of January 2026');
@@ -82,25 +147,54 @@ try {
     $months_list[] = $start2->format('Y-m');
     $start2->modify('+1 month');
   }
-  $trend_series = [];
+  $trend_series_tsp = [];
   $current_index = array_search($current_month_ym, $months_list);
   if ($current_index === false) $current_index = count($months_list)-1;
-  $current_val = isset($monthly_counts[$current_index]) ? (float)$monthly_counts[$current_index] : 0;
+  $current_val = isset($monthly_counts_tsp[$current_index]) ? (float)$monthly_counts_tsp[$current_index] : 0;
   for ($i=0;$i<count($months_list);$i++){
     if ($i <= $current_index) {
-      $trend_series[$i] = isset($monthly_counts[$i]) ? (int)$monthly_counts[$i] : 0;
+      $trend_series_tsp[$i] = isset($monthly_counts_tsp[$i]) ? (int)$monthly_counts_tsp[$i] : 0;
     } else {
       $remaining = (count($months_list)-1) - $current_index;
       $step = $i - $current_index;
       if ($remaining > 0) {
-        $trend_series[$i] = round($current_val + (($monthly_target - $current_val) * ($step / $remaining)), 1);
+        $trend_series_tsp[$i] = round($current_val + (($monthly_target_tsp - $current_val) * ($step / $remaining)), 1);
       } else {
-        $trend_series[$i] = $monthly_target;
+        $trend_series_tsp[$i] = $monthly_target_tsp;
       }
     }
   }
 } catch (Exception $e) {
-  $trend_series = array_fill(0, count($monthly_labels), null);
+  $trend_series_tsp = array_fill(0, count($monthly_labels), null);
+}
+
+// Build UTPE projection series: continue trend from current month towards monthly target
+try {
+  $months_list = [];
+  $start2 = new DateTime('first day of January 2026');
+  for ($i=0;$i<12;$i++){
+    $months_list[] = $start2->format('Y-m');
+    $start2->modify('+1 month');
+  }
+  $trend_series_utpe = [];
+  $current_index = array_search($current_month_ym, $months_list);
+  if ($current_index === false) $current_index = count($months_list)-1;
+  $current_val = isset($monthly_counts_utpe[$current_index]) ? (float)$monthly_counts_utpe[$current_index] : 0;
+  for ($i=0;$i<count($months_list);$i++){
+    if ($i <= $current_index) {
+      $trend_series_utpe[$i] = isset($monthly_counts_utpe[$i]) ? (int)$monthly_counts_utpe[$i] : 0;
+    } else {
+      $remaining = (count($months_list)-1) - $current_index;
+      $step = $i - $current_index;
+      if ($remaining > 0) {
+        $trend_series_utpe[$i] = round($current_val + (($monthly_target_utpe - $current_val) * ($step / $remaining)), 1);
+      } else {
+        $trend_series_utpe[$i] = $monthly_target_utpe;
+      }
+    }
+  }
+} catch (Exception $e) {
+  $trend_series_utpe = array_fill(0, count($monthly_labels), null);
 }
 ?>
 <!DOCTYPE html>
@@ -282,13 +376,27 @@ try {
           <div class="col-12">
             <div class="card card-compact mb-3">
               <div class="card-body">
-                <h6 class="mb-2">Pencapaian 12 Bulan</h6>
+                <h6 class="mb-2">Pencapaian TSP (12 Bulan)</h6>
                 <div class="d-flex justify-content-between align-items-center mb-2" style="gap:12px;flex-wrap:wrap;">
-                  <div class="small-muted">Target PST per bulan: <strong><?php echo number_format($monthly_target); ?></strong></div>
-                  <div class="small-muted">Bulan ini: <strong><?php echo number_format($current_month_saved); ?></strong> (<strong><?php echo $current_month_pct; ?>%</strong>)</div>
-                  <div class="small-muted">Hari ini: <strong><?php echo number_format($today_saved); ?></strong> / <?php echo number_format($daily_target); ?> (<strong><?php echo $today_pct; ?>%</strong>)</div>
+                  <div class="small-muted">Target PST per bulan: <strong><?php echo number_format($monthly_target_tsp); ?></strong></div>
+                  <div class="small-muted">Bulan ini: <strong><?php echo number_format($current_month_saved_tsp); ?></strong> (<strong><?php echo $current_month_pct_tsp; ?>%</strong>)</div>
+                  <div class="small-muted">Hari ini: <strong><?php echo number_format($today_saved_tsp); ?></strong> / <?php echo number_format($daily_target_tsp); ?> (<strong><?php echo $today_pct_tsp; ?>%</strong>)</div>
                 </div>
-                <div style="height:220px;"><canvas id="achievementChart" style="width:100%;height:100%;"></canvas></div>
+                <div style="height:220px;"><canvas id="achievementChart_TSP" style="width:100%;height:100%;"></canvas></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="col-12">
+            <div class="card card-compact mb-3">
+              <div class="card-body">
+                <h6 class="mb-2">Pencapaian UTPE (12 Bulan)</h6>
+                <div class="d-flex justify-content-between align-items-center mb-2" style="gap:12px;flex-wrap:wrap;">
+                  <div class="small-muted">Target PST per bulan: <strong><?php echo number_format($monthly_target_utpe); ?></strong></div>
+                  <div class="small-muted">Bulan ini: <strong><?php echo number_format($current_month_saved_utpe); ?></strong> (<strong><?php echo $current_month_pct_utpe; ?>%</strong>)</div>
+                  <div class="small-muted">Hari ini: <strong><?php echo number_format($today_saved_utpe); ?></strong> / <?php echo number_format($daily_target_utpe); ?> (<strong><?php echo $today_pct_utpe; ?>%</strong>)</div>
+                </div>
+                <div style="height:220px;"><canvas id="achievementChart_UTPE" style="width:100%;height:100%;"></canvas></div>
               </div>
             </div>
           </div>
@@ -369,59 +477,118 @@ try {
       <script>
         (function(){
           var labels = <?php echo json_encode($monthly_labels); ?>;
-          var data = <?php echo json_encode($monthly_counts); ?>;
-          var target = <?php echo json_encode($target_series); ?>;
-          var projection = <?php echo json_encode($trend_series); ?>;
-          var ctx = document.getElementById('achievementChart');
-          if (!ctx) return;
+          
+          // TSP Chart
+          var data_tsp = <?php echo json_encode($monthly_counts_tsp); ?>;
+          var target_tsp = <?php echo json_encode($target_series_tsp); ?>;
+          var projection_tsp = <?php echo json_encode($trend_series_tsp); ?>;
+          var ctx_tsp = document.getElementById('achievementChart_TSP');
+          
+          // UTPE Chart
+          var data_utpe = <?php echo json_encode($monthly_counts_utpe); ?>;
+          var target_utpe = <?php echo json_encode($target_series_utpe); ?>;
+          var projection_utpe = <?php echo json_encode($trend_series_utpe); ?>;
+          var ctx_utpe = document.getElementById('achievementChart_UTPE');
+          
+          if (!ctx_tsp && !ctx_utpe) return;
 
           var isDark = document.body.getAttribute('data-pc-theme') === 'dark';
           var gridColor = isDark ? 'rgba(148,163,184,0.22)' : 'rgba(100,116,139,0.18)';
           var tickColor = isDark ? '#cbd5e1' : '#475569';
 
-          new Chart(ctx, {
-            type: 'line',
-            data: {
-              labels: labels,
-              datasets: [{
-                label: 'Item tersimpan',
-                data: data,
-                fill: true,
-                backgroundColor: 'rgba(59,130,246,0.12)',
-                borderColor: '#3b82f6',
-                tension: 0.35,
-                pointRadius: 4,
-                pointBackgroundColor: '#3b82f6'
-              }, {
-                label: 'Target Bulanan',
-                data: target,
-                type: 'line',
-                borderColor: '#ef4444',
-                borderDash: [6,4],
-                fill: false,
-                tension: 0
-              }, {
-                label: 'Proyeksi ke Target',
-                data: projection,
-                type: 'line',
-                borderColor: '#10b981',
-                borderDash: [4,4],
-                backgroundColor: 'rgba(16,185,129,0.08)',
-                fill: false,
-                tension: 0.25,
-                pointRadius: 3
-              }]
-            },
-            options: {
-              responsive: true,
-              maintainAspectRatio: false,
-              scales: {
-                x: { ticks: { color: tickColor }, grid: { color: gridColor } },
-                y: { beginAtZero: true, ticks: { precision:0, color: tickColor }, grid: { color: gridColor } }
+          // TSP Chart
+          if (ctx_tsp) {
+            new Chart(ctx_tsp, {
+              type: 'line',
+              data: {
+                labels: labels,
+                datasets: [{
+                  label: 'Item tersimpan TSP',
+                  data: data_tsp,
+                  fill: true,
+                  backgroundColor: 'rgba(59,130,246,0.12)',
+                  borderColor: '#3b82f6',
+                  tension: 0.35,
+                  pointRadius: 4,
+                  pointBackgroundColor: '#3b82f6'
+                }, {
+                  label: 'Target Bulanan',
+                  data: target_tsp,
+                  type: 'line',
+                  borderColor: '#ef4444',
+                  borderDash: [6,4],
+                  fill: false,
+                  tension: 0
+                }, {
+                  label: 'Proyeksi ke Target',
+                  data: projection_tsp,
+                  type: 'line',
+                  borderColor: '#10b981',
+                  borderDash: [4,4],
+                  backgroundColor: 'rgba(16,185,129,0.08)',
+                  fill: false,
+                  tension: 0.25,
+                  pointRadius: 3
+                }]
               },
-              plugins: { legend: { display: true, labels: { color: tickColor } } }
-            }
-          });
+              options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                  x: { ticks: { color: tickColor }, grid: { color: gridColor } },
+                  y: { beginAtZero: true, ticks: { precision:0, color: tickColor }, grid: { color: gridColor } }
+                },
+                plugins: { legend: { display: true, labels: { color: tickColor } } }
+              }
+            });
+          }
+
+          // UTPE Chart
+          if (ctx_utpe) {
+            new Chart(ctx_utpe, {
+              type: 'line',
+              data: {
+                labels: labels,
+                datasets: [{
+                  label: 'Item tersimpan UTPE',
+                  data: data_utpe,
+                  fill: true,
+                  backgroundColor: 'rgba(168,85,247,0.12)',
+                  borderColor: '#a855f7',
+                  tension: 0.35,
+                  pointRadius: 4,
+                  pointBackgroundColor: '#a855f7'
+                }, {
+                  label: 'Target Bulanan',
+                  data: target_utpe,
+                  type: 'line',
+                  borderColor: '#ef4444',
+                  borderDash: [6,4],
+                  fill: false,
+                  tension: 0
+                }, {
+                  label: 'Proyeksi ke Target',
+                  data: projection_utpe,
+                  type: 'line',
+                  borderColor: '#f59e0b',
+                  borderDash: [4,4],
+                  backgroundColor: 'rgba(245,158,11,0.08)',
+                  fill: false,
+                  tension: 0.25,
+                  pointRadius: 3
+                }]
+              },
+              options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                  x: { ticks: { color: tickColor }, grid: { color: gridColor } },
+                  y: { beginAtZero: true, ticks: { precision:0, color: tickColor }, grid: { color: gridColor } }
+                },
+                plugins: { legend: { display: true, labels: { color: tickColor } } }
+              }
+            });
+          }
         })();
       </script>
       <script>
